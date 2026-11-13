@@ -30,17 +30,17 @@ $BT/d8 --release --min-api 26 --lib $AJ --output $OUT/dex $(find $OUT/classes -n
 $BT/zipalign -f 4 $OUT/app.unsigned.apk $OUT/app.aligned.apk
 if [ -n "${KEYSTORE_FILE:-}" ]; then
   $BT/apksigner sign --ks "$KEYSTORE_FILE" --ks-pass env:KEYSTORE_PASSWORD --ks-key-alias "$KEY_ALIAS" \
-    --key-pass env:KEY_PASSWORD --out $OUT/reeder.apk $OUT/app.aligned.apk
+    --key-pass env:KEY_PASSWORD --out $OUT/reeader.apk $OUT/app.aligned.apk
 else
   DEBUG_KS="$HOME/.android/debug.keystore"
   [ -f "$DEBUG_KS" ] || { mkdir -p "$HOME/.android" && $JDK/bin/keytool -genkeypair -keystore "$DEBUG_KS" \
     -storepass android -keypass android -alias androiddebugkey -keyalg RSA -keysize 2048 -validity 10000 \
     -dname "CN=Android Debug,O=Android,C=US" >/dev/null 2>&1; }
-  $BT/apksigner sign --ks "$DEBUG_KS" --ks-pass pass:android --out $OUT/reeder.apk $OUT/app.aligned.apk
+  $BT/apksigner sign --ks "$DEBUG_KS" --ks-pass pass:android --out $OUT/reeader.apk $OUT/app.aligned.apk
 fi
-echo "built $OUT/reeder.apk"
+echo "built $OUT/reeader.apk"
 
 if [ "$1" = install ]; then
-  adb install -r $OUT/reeder.apk
+  adb install -r $OUT/reeader.apk
   adb shell am start -n com.github.ad.reeder/.MainActivity
 fi

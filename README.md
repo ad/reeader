@@ -1,4 +1,4 @@
-# Reeder for FreshRSS
+# Reeader for FreshRSS
 
 Android-клиент FreshRSS на Java. Работает через Google Reader API (`/api/greader.php`).
 
@@ -7,7 +7,7 @@ Android-клиент FreshRSS на Java. Работает через Google Read
 Нужны JDK 17+, Android SDK с platform 36 и build-tools.
 
 ```bash
-./build.sh            # build/reeder.apk
+./build.sh            # build/reeader.apk
 ./build.sh install    # собрать, поставить через adb и запустить
 ```
 
@@ -20,10 +20,10 @@ Android-клиент FreshRSS на Java. Работает через Google Read
 Ключ подписи создаётся один раз:
 
 ```bash
-keytool -genkeypair -v -keystore release.jks -alias reeder -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore release.jks -alias reeader -keyalg RSA -keysize 2048 -validity 10000
 gh secret set KEYSTORE_BASE64 --body "$(base64 -i release.jks)"
 gh secret set KEYSTORE_PASSWORD
-gh secret set KEY_ALIAS --body reeder
+gh secret set KEY_ALIAS --body reeader
 gh secret set KEY_PASSWORD
 ```
 

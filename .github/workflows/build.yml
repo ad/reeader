@@ -48,8 +48,8 @@ jobs:
         if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
-          name: reeder-${{ github.run_number }}
-          path: build/reeder.apk
+          name: reeader-${{ github.run_number }}
+          path: build/reeader.apk
           retention-days: 14
       - name: Publish GitHub release
         if: github.event_name != 'pull_request'
@@ -58,5 +58,5 @@ jobs:
         run: |
           version="v0.1.${{ github.run_number }}"
           mkdir dist
-          cp build/reeder.apk "dist/reeder-$version.apk"
-          gh release create "$version" dist/* --target "${{ github.sha }}" --title "Reeder $version" --generate-notes
+          cp build/reeader.apk "dist/reeader-$version.apk"
+          gh release create "$version" dist/* --target "${{ github.sha }}" --title "Reeader $version" --generate-notes

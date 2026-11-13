@@ -22,7 +22,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 final class Update {
-    private static final String LATEST = "https://api.github.com/repos/ad/reeder/releases/latest";
+    private static final String LATEST = "https://api.github.com/repos/ad/reeader/releases/latest";
     private static final long INTERVAL = 3 * 3_600_000L;
     private static long checked;
 
