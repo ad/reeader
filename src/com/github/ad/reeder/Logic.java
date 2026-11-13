@@ -1,0 +1,79 @@
+package com.github.ad.reeder;
+
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Locale;
+import java.util.TimeZone;
+
+final class Logic {
+    static final String ITEM_PREFIX = "tag:google.com,2005:reader/item/";
+
+    static long parseItemId(String id) {
+        if (id.startsWith(ITEM_PREFIX)) return Long.parseUnsignedLong(id.substring(ITEM_PREFIX.length()), 16);
+        return Long.parseLong(id);
+    }
+
+    static String longItemId(long id) {
+        String hex = Long.toHexString(id);
+        return ITEM_PREFIX + "0000000000000000".substring(hex.length()) + hex;
+    }
+
+    static int releaseBuild(String tag) {
+        try {
+            return Integer.parseInt(tag.substring(tag.lastIndexOf('.') + 1));
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
+    static String apiBase(String url) {
+        String u = url.trim();
+        if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
+        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
+        if (u.endsWith("/api/greader.php")) return u;
+        if (u.endsWith("/api")) return u + "/greader.php";
+        return u + "/api/greader.php";
+    }
+
+    static String stripHtml(String html, int max) {
+        if (html == null) return "";
+        String s = html.replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>", " ")
+                .replaceAll("<[^>]*>", " ")
+                .replace("&nbsp;", " ").replace("&amp;", "&").replace("&lt;", "<")
+                .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
+                .replaceAll("\\s+", " ").trim();
+        return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    static long startOfDay(long ms, TimeZone tz) {
+        Calendar c = Calendar.getInstance(tz);
+        c.setTimeInMillis(ms);
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+        return c.getTimeInMillis();
+    }
+
+    static String dayLabel(long ms, long now, TimeZone tz) {
+        long day = startOfDay(ms, tz), today = startOfDay(now, tz);
+        if (day == today) return "TODAY";
+        if (day == startOfDay(today - 1, tz)) return "YESTERDAY";
+        SimpleDateFormat f = new SimpleDateFormat(sameYear(ms, now, tz) ? "EEEE, MMMM d" : "EEEE, MMMM d, yyyy", Locale.US);
+        f.setTimeZone(tz);
+        return f.format(ms).toUpperCase(Locale.US);
+    }
+
+    static String articleDate(long ms, TimeZone tz) {
+        SimpleDateFormat f = new SimpleDateFormat("EEEE, MMMM d, yyyy 'at' HH:mm", Locale.US);
+        f.setTimeZone(tz);
+        return f.format(ms).toUpperCase(Locale.US);
+    }
+
+    private static boolean sameYear(long a, long b, TimeZone tz) {
+        Calendar ca = Calendar.getInstance(tz), cb = Calendar.getInstance(tz);
+        ca.setTimeInMillis(a);
+        cb.setTimeInMillis(b);
+        return ca.get(Calendar.YEAR) == cb.get(Calendar.YEAR);
+    }
+}

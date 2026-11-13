@@ -1,0 +1,215 @@
+package com.github.ad.reeder;
+
+import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.Context;
+import android.content.Intent;
+import android.os.Bundle;
+import android.text.TextUtils;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
+import android.widget.PopupMenu;
+import android.widget.ScrollView;
+import android.widget.Switch;
+import android.widget.TextView;
+
+public class SettingsActivity extends Activity {
+    private LinearLayout body;
+
+    @Override
+    protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        App.init(this);
+        LinearLayout root = Ui.column(this);
+        root.addView(Ui.topBar(this, Ui.icon(this, R.drawable.ic_back, v -> finish()), null, null));
+        ScrollView scroll = new ScrollView(this);
+        body = Ui.column(this);
+        body.setPadding(Ui.dp(this, 16), 0, Ui.dp(this, 16), Ui.dp(this, 24));
+        scroll.addView(body);
+        root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
+        Ui.edgeToEdge(this, root);
+        build();
+    }
+
+    private void build() {
+        body.removeAllViews();
+        title(this, body, "FreshRSS", App.prefs.getString("user", ""));
+
+        section(this, body, "GENERAL");
+        LinearLayout g = card(this, body);
+        valueRow(this, g, "Description", "FreshRSS", null);
+        TextView server = valueRow(this, g, "Server", App.prefs.getString("base", ""), null);
+        ((TextView) ((LinearLayout) server.getParent()).getChildAt(0)).setTextColor(Ui.color(this, R.color.text2));
+
+        section(this, body, "SYNCING");
+        LinearLayout s = card(this, body);
+        choice(s, "Sync", "sync_mode", new String[]{"start", "manual"}, new String[]{"On start", "Manual"}, "start");
+        String[] keepLabels = {"1 week", "1 month", "3 months", "Forever"};
+        int[] keepDays = {7, 30, 90, 0};
+        int keep = App.prefs.getInt("keep_days", 30);
+        String keepLabel = keepLabels[1];
+        for (int i = 0; i < keepDays.length; i++) if (keepDays[i] == keep) keepLabel = keepLabels[i];
+        valueRow(this, s, "Keep read items", keepLabel, v -> pick(v, keepLabels, i -> {
+            App.prefs.edit().putInt("keep_days", keepDays[i]).apply();
+            build();
+        }));
+
+        section(this, body, "READING");
+        LinearLayout r = card(this, body);
+        LinearLayout readerRow = rowIn(this, r, "Reader View (full-text)");
+        ImageView chevron = new ImageView(this);
+        chevron.setImageResource(R.drawable.ic_chevron_right);
+        readerRow.addView(chevron);
+        readerRow.setOnClickListener(v -> startActivity(new Intent(this, ReaderSettingsActivity.class)));
+        choice(r, "Sort subscriptions", "sort", new String[]{"folders", "alpha"}, new String[]{"Folders", "Alphabetical"}, "folders");
+        String[] markLabels = {"On open", "Manual"};
+        valueRow(this, r, "Mark article as read", markLabels[App.prefs.getBoolean("mark_open", true) ? 0 : 1], v -> pick(v, markLabels, i -> {
+            App.prefs.edit().putBoolean("mark_open", i == 0).apply();
+            build();
+        }));
+
+        LinearLayout m = card(this, body);
+        switchRow(this, m, "Mark as read on scroll", App.prefs.getBoolean("mark_scroll", false),
+                on -> App.prefs.edit().putBoolean("mark_scroll", on).apply());
+        caption(this, body, "If enabled, items will be automatically marked as read while scrolling down. "
+                + "Note: scrolling up does not mark items as read, only scrolling down.");
+
+        section(this, body, "ACCOUNT");
+        LinearLayout a = card(this, body);
+        TextView remove = Ui.text(this, 16, R.color.text, false);
+        remove.setText("Remove Account…");
+        remove.setGravity(Gravity.CENTER);
+        remove.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
+        remove.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setMessage("Remove this account and all downloaded articles?")
+                .setPositiveButton("Remove", (d, w) -> removeAccount())
+                .setNegativeButton("Cancel", null)
+                .show());
+        a.addView(remove);
+
+        try {
+            TextView version = Ui.text(this, 12, R.color.text2, false);
+            version.setText("Version " + getPackageManager().getPackageInfo(getPackageName(), 0).versionName);
+            version.setGravity(Gravity.CENTER);
+            version.setPadding(0, Ui.dp(this, 16), 0, 0);
+            body.addView(version);
+        } catch (android.content.pm.PackageManager.NameNotFoundException e) {
+            throw new AssertionError(e);
+        }
+    }
+
+    private void choice(LinearLayout card, String label, String key, String[] values, String[] labels, String def) {
+        String cur = App.prefs.getString(key, def);
+        String shown = labels[0];
+        for (int i = 0; i < values.length; i++) if (values[i].equals(cur)) shown = labels[i];
+        valueRow(this, card, label, shown, v -> pick(v, labels, i -> {
+            App.prefs.edit().putString(key, values[i]).apply();
+            build();
+        }));
+    }
+
+    private void pick(View anchor, String[] labels, java.util.function.IntConsumer onPick) {
+        PopupMenu p = new PopupMenu(this, anchor, Gravity.END);
+        for (int i = 0; i < labels.length; i++) p.getMenu().add(0, i, i, labels[i]);
+        p.setOnMenuItemClickListener(mi -> {
+            onPick.accept(mi.getItemId());
+            return true;
+        });
+        p.show();
+    }
+
+    private void removeAccount() {
+        App.db.clear();
+        App.prefs.edit().clear().apply();
+        Icons.clear(this);
+        startActivity(new Intent(this, LoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
+    }
+
+    static void title(Context c, LinearLayout body, String title, String subtitle) {
+        TextView t = Ui.text(c, 22, R.color.text, true);
+        t.setText(title);
+        t.setPadding(Ui.dp(c, 4), 0, 0, 0);
+        body.addView(t);
+        if (subtitle != null) {
+            TextView s = Ui.text(c, 12, R.color.text2, true);
+            s.setText(subtitle);
+            s.setPadding(Ui.dp(c, 4), 0, 0, 0);
+            body.addView(s);
+        }
+    }
+
+    static void section(Context c, LinearLayout body, String label) {
+        TextView t = Ui.text(c, 12, R.color.text2, false);
+        t.setText(label);
+        t.setLetterSpacing(0.04f);
+        t.setPadding(Ui.dp(c, 18), Ui.dp(c, 24), 0, Ui.dp(c, 8));
+        body.addView(t);
+    }
+
+    static LinearLayout card(Context c, LinearLayout body) {
+        LinearLayout card = Ui.column(c);
+        card.setBackground(Ui.rounded(c, R.color.card, 12));
+        card.setClipToOutline(true);
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
+        lp.topMargin = Ui.dp(c, 8);
+        body.addView(card, lp);
+        return card;
+    }
+
+    static void caption(Context c, LinearLayout body, String text) {
+        TextView t = Ui.text(c, 12, R.color.text2, false);
+        t.setText(text);
+        t.setPadding(Ui.dp(c, 18), Ui.dp(c, 8), Ui.dp(c, 18), 0);
+        body.addView(t);
+    }
+
+    static LinearLayout rowIn(Context c, LinearLayout card, String label) {
+        if (card.getChildCount() > 0) {
+            View div = new View(c);
+            div.setBackgroundColor(Ui.color(c, R.color.divider));
+            LinearLayout.LayoutParams dl = new LinearLayout.LayoutParams(-1, Math.max(1, Ui.dp(c, 0.5f)));
+            dl.leftMargin = Ui.dp(c, 18);
+            card.addView(div, dl);
+        }
+        LinearLayout row = Ui.row(c);
+        row.setMinimumHeight(Ui.dp(c, 48));
+        row.setPadding(Ui.dp(c, 18), Ui.dp(c, 8), Ui.dp(c, 14), Ui.dp(c, 8));
+        TextView l = Ui.text(c, 16, R.color.text, false);
+        l.setText(label);
+        row.addView(l, new LinearLayout.LayoutParams(0, -2, 1));
+        card.addView(row);
+        return row;
+    }
+
+    static TextView valueRow(Context c, LinearLayout card, String label, String value, View.OnClickListener click) {
+        LinearLayout row = rowIn(c, card, label);
+        TextView v = Ui.text(c, 15, R.color.text2, false);
+        v.setText(value);
+        v.setSingleLine();
+        v.setEllipsize(TextUtils.TruncateAt.START);
+        v.setGravity(Gravity.END);
+        row.getChildAt(0).setLayoutParams(new LinearLayout.LayoutParams(-2, -2));
+        v.setPadding(Ui.dp(c, 12), 0, 0, 0);
+        row.addView(v, new LinearLayout.LayoutParams(0, -2, 1));
+        if (click != null) {
+            ImageView chevron = new ImageView(c);
+            chevron.setImageResource(R.drawable.ic_chevron_down);
+            chevron.setAlpha(0.6f);
+            row.addView(chevron, new LinearLayout.LayoutParams(Ui.dp(c, 18), Ui.dp(c, 18)));
+            row.setOnClickListener(click);
+        }
+        return v;
+    }
+
+    static Switch switchRow(Context c, LinearLayout card, String label, boolean on, java.util.function.Consumer<Boolean> change) {
+        LinearLayout row = rowIn(c, card, label);
+        Switch s = new Switch(c);
+        s.setChecked(on);
+        s.setOnCheckedChangeListener((b, v) -> change.accept(v));
+        row.addView(s);
+        row.setOnClickListener(v -> s.toggle());
+        return s;
+    }
+}

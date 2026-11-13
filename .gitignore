@@ -1,0 +1,7 @@
+build/
+reference-images/
+.DS_Store
+*.jks
+*.apk
+*.idsig
+signing.env
