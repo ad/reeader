@@ -1,9 +1,13 @@
 package com.github.ad.reeder;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 final class Logic {
     static final String ITEM_PREFIX = "tag:google.com,2005:reader/item/";
@@ -43,6 +47,14 @@ final class Logic {
                 .replace("&gt;", ">").replace("&quot;", "\"").replace("&#39;", "'")
                 .replaceAll("\\s+", " ").trim();
         return s.length() > max ? s.substring(0, max) : s;
+    }
+
+    static List<String> theses(String yandex300Page) {
+        List<String> out = new ArrayList<>();
+        Matcher m = Pattern.compile("<meta name=\"description\" content=\"([^\"]*)\"").matcher(yandex300Page);
+        if (!m.find()) return out;
+        for (String t : stripHtml(m.group(1), Integer.MAX_VALUE).split("•")) if (!t.trim().isEmpty()) out.add(t.trim());
+        return out;
     }
 
     static long startOfDay(long ms, TimeZone tz) {

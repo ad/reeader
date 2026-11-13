@@ -24,6 +24,10 @@ public class LogicTest {
         assert Logic.stripHtml("<p>Hi&nbsp;<b>there</b></p><script>x()</script>", 100).equals("Hi there");
         assert Logic.stripHtml("abcdef", 3).equals("abc");
 
+        assert Logic.theses("<meta name=\"description\" content=\"• Цены &quot;растут&quot;. \n • R&amp;D урезали.\">")
+                .equals(java.util.Arrays.asList("Цены \"растут\".", "R&D урезали.")) : Logic.theses("x");
+        assert Logic.theses("<html></html>").isEmpty();
+
         TimeZone tz = TimeZone.getTimeZone("Europe/Moscow");
         long now = 1794573000000L;
         assert Logic.dayLabel(now - 3600_000L, now, tz).equals("TODAY");

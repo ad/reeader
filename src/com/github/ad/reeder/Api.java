@@ -1,5 +1,8 @@
 package com.github.ad.reeder;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,6 +83,30 @@ final class Api {
             int code = c.getResponseCode();
             if (code / 100 != 2) throw new HttpException(code, url);
             return read(c.getInputStream());
+        } finally {
+            c.disconnect();
+        }
+    }
+
+    static String yandex300(String token, String articleUrl) throws IOException, JSONException {
+        HttpURLConnection c = (HttpURLConnection) new URL("https://300.ya.ru/api/sharing-url").openConnection();
+        c.setConnectTimeout(15000);
+        c.setReadTimeout(60000);
+        c.setRequestProperty("Authorization", "OAuth " + token);
+        c.setRequestProperty("Content-Type", "application/json");
+        c.setDoOutput(true);
+        try {
+            try (OutputStream o = c.getOutputStream()) {
+                o.write(new JSONObject().put("article_url", articleUrl).toString().getBytes(StandardCharsets.UTF_8));
+            }
+            int code = c.getResponseCode();
+            InputStream in = code / 100 == 2 ? c.getInputStream() : c.getErrorStream();
+            if (in == null) throw new HttpException(code, c.getURL().toString());
+            String s = read(in);
+            if (!s.startsWith("{")) throw new IOException(s.length() < 100 ? s : "HTTP " + code);
+            JSONObject r = new JSONObject(s);
+            if (!"success".equals(r.optString("status"))) throw new IOException(r.optString("message", "HTTP " + code));
+            return request(r.getString("sharing_url"), null, null);
         } finally {
             c.disconnect();
         }

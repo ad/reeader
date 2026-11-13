@@ -8,6 +8,7 @@ import android.os.Bundle;
 import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.PopupMenu;
@@ -75,6 +76,23 @@ public class SettingsActivity extends Activity {
                 on -> App.prefs.edit().putBoolean("mark_scroll", on).apply());
         caption(this, body, "If enabled, items will be automatically marked as read while scrolling down. "
                 + "Note: scrolling up does not mark items as read, only scrolling down.");
+
+        section(this, body, "SUMMARY");
+        LinearLayout y = card(this, body);
+        String token = App.prefs.getString("ya300_token", "");
+        valueRow(this, y, "Yandex 300 token", token.isEmpty() ? "Not set" : "Set", v -> {
+            EditText e = new EditText(this);
+            e.setSingleLine();
+            e.setText(token);
+            new AlertDialog.Builder(this).setTitle("Yandex 300 token").setView(e)
+                    .setPositiveButton("Save", (d, w) -> {
+                        App.prefs.edit().putString("ya300_token", e.getText().toString().trim()).apply();
+                        build();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
+        caption(this, body, "Get a token at 300.ya.ru. Article links are sent to Yandex for summarizing.");
 
         section(this, body, "ACCOUNT");
         LinearLayout a = card(this, body);
