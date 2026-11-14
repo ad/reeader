@@ -66,6 +66,7 @@ final class Sync {
             String error = null;
             try {
                 run();
+                App.prefs.edit().putLong("last_sync", System.currentTimeMillis()).apply();
             } catch (Exception e) {
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
@@ -186,6 +187,7 @@ final class Sync {
             v.put("title", Html.fromHtml(o.optString("title"), 0).toString());
             v.put("summary", Logic.stripHtml(content, 300));
             v.put("content", content);
+            v.put("image", Logic.firstImage(content));
             v.put("url", url);
             v.put("published", o.optLong("published") * 1000);
             v.put("read", read ? 1 : 0);

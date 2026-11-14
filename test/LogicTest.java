@@ -34,6 +34,14 @@ public class LogicTest {
         assert Logic.dayLabel(now - 24 * 3600_000L, now, tz).equals("YESTERDAY");
         assert Logic.dayLabel(now - 3 * 24 * 3600_000L, now, tz).equals("TUESDAY, NOVEMBER 10") : Logic.dayLabel(now - 3 * 24 * 3600_000L, now, tz);
         assert Logic.dayLabel(now - 400 * 24 * 3600_000L, now, tz).endsWith(", 2025");
+        assert Logic.syncLabel(now, now, tz).matches("Today at \\d\\d:\\d\\d") : Logic.syncLabel(now, now, tz);
+        assert Logic.syncLabel(now - 24 * 3600_000L, now, tz).startsWith("Yesterday at ");
+        assert Logic.syncLabel(now - 3 * 24 * 3600_000L, now, tz).startsWith("November 10 at ");
+        assert Logic.syncLabel(now - 400 * 24 * 3600_000L, now, tz).contains(", 2025 at ");
+        assert Logic.firstImage("<p><img width=\"1\" src=\"https://t/p.gif\"><IMG alt='x' SRC='//h/a.jpg?a=1&amp;b=2'></p>").equals("https://h/a.jpg?a=1&b=2");
+        assert Logic.firstImage("<img src=\"data:image/png;base64,xx\"><img src=\"/rel.png\">") == null;
+        assert Logic.firstImage(null) == null;
+        assert Logic.firstImage("<img src='http://h/b.png'>").equals("https://h/b.png");
         System.out.println("LogicTest ok");
     }
 }

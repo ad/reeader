@@ -19,7 +19,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 final class Icons {
-    private static final LruCache<String, Bitmap> mem = new LruCache<>(200);
+    private static final LruCache<String, Bitmap> mem = new LruCache<String, Bitmap>(24 << 20) {
+        @Override
+        protected int sizeOf(String k, Bitmap b) {
+            return b.getByteCount();
+        }
+    };
     private static final Set<String> failed = new HashSet<>();
     private static final java.util.Map<String, java.util.List<ImageView>> waiting = new java.util.HashMap<>();
     private static final ExecutorService pool = Executors.newFixedThreadPool(3);
@@ -27,16 +32,28 @@ final class Icons {
 
     static void load(ImageView v, String iconUrl, String siteUrl) {
         String url = iconUrl != null ? iconUrl : favicon(siteUrl);
-        String site = iconUrl != null ? siteUrl : null;
+        into(v, url, iconUrl != null ? favicon(siteUrl) : null, true);
+    }
+
+    static void thumb(ImageView v, String url) {
+        v.setVisibility(url == null || failed.contains(url) ? android.view.View.GONE : android.view.View.VISIBLE);
+        into(v, url, null, false);
+    }
+
+    private static void into(ImageView v, String url, String fallback, boolean icon) {
         v.setTag(url);
         Bitmap b = url == null ? null : mem.get(url);
         if (b != null) {
-            show(v, b);
+            show(v, b, icon);
             return;
         }
-        v.setBackground(null);
-        v.setPadding(0, 0, 0, 0);
-        v.setImageResource(R.drawable.ic_feed);
+        if (icon) {
+            v.setBackground(null);
+            v.setPadding(0, 0, 0, 0);
+            v.setImageResource(R.drawable.ic_feed);
+        } else {
+            v.setImageDrawable(null);
+        }
         if (url == null || failed.contains(url)) return;
         java.util.List<ImageView> views = waiting.get(url);
         if (views != null) {
@@ -48,23 +65,24 @@ final class Icons {
         Context c = v.getContext().getApplicationContext();
         pool.execute(() -> {
             Bitmap bm = fetch(c, url);
-            String fallback = favicon(site);
             if (bm == null && fallback != null) bm = fetch(c, fallback);
             Bitmap result = bm;
             main.post(() -> {
                 java.util.List<ImageView> done = waiting.remove(url);
                 if (result == null) {
                     failed.add(url);
+                    if (!icon) for (ImageView w : done) if (url.equals(w.getTag())) w.setVisibility(android.view.View.GONE);
                     return;
                 }
                 mem.put(url, result);
-                for (ImageView w : done) if (url.equals(w.getTag())) show(w, result);
+                for (ImageView w : done) if (url.equals(w.getTag())) show(w, result, icon);
             });
         });
     }
 
-    private static void show(ImageView v, Bitmap b) {
+    private static void show(ImageView v, Bitmap b, boolean icon) {
         v.setImageBitmap(b);
+        if (!icon) return;
         v.setBackground(Ui.rounded(v.getContext(), R.color.icon_tile, 4));
         int p = Ui.color(v.getContext(), R.color.icon_tile) == 0 ? 0 : Ui.dp(v.getContext(), 2);
         v.setPadding(p, p, p, p);
@@ -88,7 +106,7 @@ final class Icons {
     }
 
     private static Bitmap fetch(Context c, String url) {
-        File f = new File(dir(c), Api.enc(url));
+        File f = new File(dir(c), java.util.UUID.nameUUIDFromBytes(url.getBytes()).toString());
         try {
             if (!f.exists()) {
                 HttpURLConnection con = (HttpURLConnection) new URL(url).openConnection();
@@ -101,7 +119,17 @@ final class Icons {
                     con.disconnect();
                 }
             }
-            Bitmap b = BitmapFactory.decodeFile(f.getPath());
+            BitmapFactory.Options o = new BitmapFactory.Options();
+            o.inJustDecodeBounds = true;
+            BitmapFactory.decodeFile(f.getPath(), o);
+            int sample = 1;
+            while (Math.min(o.outWidth, o.outHeight) / (sample * 2) >= 256 || Math.max(o.outWidth, o.outHeight) / sample > 2048) sample *= 2;
+            o = new BitmapFactory.Options();
+            o.inSampleSize = sample;
+            Bitmap b = BitmapFactory.decodeFile(f.getPath(), o);
+            if (b != null && sample > 1) try (FileOutputStream out = new FileOutputStream(f)) {
+                b.compress(Bitmap.CompressFormat.JPEG, 85, out);
+            }
             if (b == null) f.delete();
             return b;
         } catch (Exception e) {

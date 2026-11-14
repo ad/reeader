@@ -4,10 +4,12 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
+import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -16,6 +18,7 @@ import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
@@ -122,15 +125,16 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
             }
 
             public void onSwipe(int position, boolean right) {
-                Db.Item it = (Db.Item) list.getItemAtPosition(position);
-                if (right) it.read = !it.read;
-                else it.starred = !it.starred;
-                App.sync.setFlag(Collections.singletonList(it.id), right ? Db.READ : Db.STARRED, right ? it.read : it.starred);
-                adapter.notifyDataSetChanged();
-                updateStatus();
+                toggle((Db.Item) list.getItemAtPosition(position), right);
             }
         });
         list.setOnItemClickListener((a, v, pos, id) -> open((Db.Item) a.getItemAtPosition(pos)));
+        list.setOnItemLongClickListener((a, v, pos, id) -> {
+            Object o = a.getItemAtPosition(pos);
+            if (!(o instanceof Db.Item)) return false;
+            showMenu((Db.Item) o, v);
+            return true;
+        });
         list.setOnScrollListener(new AbsListView.OnScrollListener() {
             public void onScrollStateChanged(AbsListView v, int s) {
                 userScrolling = s != SCROLL_STATE_IDLE;
@@ -230,6 +234,37 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         }
     }
 
+    private void toggle(Db.Item it, boolean read) {
+        if (read) it.read = !it.read;
+        else it.starred = !it.starred;
+        App.sync.setFlag(Collections.singletonList(it.id), read ? Db.READ : Db.STARRED, read ? it.read : it.starred);
+        adapter.notifyDataSetChanged();
+        updateStatus();
+    }
+
+    private void showMenu(Db.Item it, View anchor) {
+        PopupMenu p = new PopupMenu(this, anchor);
+        Menu m = p.getMenu();
+        m.add(0, 1, 0, it.read ? "Unread" : "Read");
+        m.add(0, 2, 0, it.starred ? "Unstar" : "Star");
+        m.add(1, 3, 0, "Mark above as read");
+        m.add(1, 4, 0, "Mark below as read");
+        m.add(2, 5, 0, "Share");
+        if (Build.VERSION.SDK_INT >= 28) m.setGroupDividerEnabled(true);
+        p.setOnMenuItemClickListener(mi -> {
+            int idx = rows.indexOf(it), pos = idx + list.getHeaderViewsCount();
+            switch (mi.getItemId()) {
+                case 1: toggle(it, true); break;
+                case 2: toggle(it, false); break;
+                case 3: if (idx >= 0) markPassed(0, pos); break;
+                case 4: if (idx >= 0) markPassed(pos + 1, list.getCount()); break;
+                default: ArticleActivity.share(this, it);
+            }
+            return true;
+        });
+        p.show();
+    }
+
     private void markPassed(int from, int to) {
         List<Long> ids = new ArrayList<>();
         for (int p = from; p < to; p++) {
@@ -302,16 +337,34 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
             feed.setSingleLine();
             feed.setEllipsize(TextUtils.TruncateAt.END);
             top.addView(feed, new LinearLayout.LayoutParams(0, -2, 1));
+            ImageView star = new ImageView(this);
+            star.setImageResource(R.drawable.ic_star);
+            star.setImageTintList(android.content.res.ColorStateList.valueOf(Ui.color(this, R.color.accent)));
+            LinearLayout.LayoutParams slp = new LinearLayout.LayoutParams(Ui.dp(this, 12), Ui.dp(this, 12));
+            slp.rightMargin = Ui.dp(this, 4);
+            top.addView(star, slp);
             top.addView(Ui.text(this, 12, R.color.text, true));
             col.addView(top);
+            LinearLayout body = new LinearLayout(this);
+            LinearLayout text = Ui.column(this);
             TextView title = Ui.text(this, 16, R.color.text, true);
             title.setMaxLines(3);
             title.setEllipsize(TextUtils.TruncateAt.END);
-            col.addView(title);
+            text.addView(title);
             TextView summary = Ui.text(this, 14, R.color.text2, false);
             summary.setSingleLine();
             summary.setEllipsize(TextUtils.TruncateAt.END);
-            col.addView(summary);
+            text.addView(summary);
+            body.addView(text, new LinearLayout.LayoutParams(0, -2, 1));
+            ImageView thumb = new ImageView(this);
+            thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
+            thumb.setBackground(Ui.rounded(this, R.color.highlight, 6));
+            thumb.setClipToOutline(true);
+            LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(Ui.dp(this, 68), Ui.dp(this, 60));
+            tlp.leftMargin = Ui.dp(this, 10);
+            tlp.topMargin = Ui.dp(this, 3);
+            body.addView(thumb, tlp);
+            col.addView(body);
             card.addView(col, new LinearLayout.LayoutParams(0, -2, 1));
             LinearLayout front = new LinearLayout(this);
             front.setDuplicateParentStateEnabled(true);
@@ -325,14 +378,18 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         LinearLayout top = (LinearLayout) col.getChildAt(0);
         Icons.load((ImageView) card.getChildAt(0), it.iconUrl, it.siteUrl);
         ((TextView) top.getChildAt(0)).setText(it.feedTitle == null ? "" : it.feedTitle.toUpperCase(Locale.getDefault()));
-        TextView time = (TextView) top.getChildAt(1);
+        top.getChildAt(1).setVisibility(it.starred ? View.VISIBLE : View.GONE);
+        TextView time = (TextView) top.getChildAt(2);
         time.setText(new SimpleDateFormat("HH:mm", Locale.getDefault()).format(it.published));
-        TextView title = (TextView) col.getChildAt(1);
+        LinearLayout body = (LinearLayout) col.getChildAt(1);
+        LinearLayout text = (LinearLayout) body.getChildAt(0);
+        Icons.thumb((ImageView) body.getChildAt(1), it.image);
+        TextView title = (TextView) text.getChildAt(0);
         title.setText(it.title);
         title.setTypeface(it.read ? Typeface.DEFAULT : Typeface.DEFAULT_BOLD);
         title.setTextColor(Ui.color(this, it.read ? R.color.text2 : R.color.text));
         time.setTextColor(Ui.color(this, it.read ? R.color.text2 : R.color.text));
-        TextView summary = (TextView) col.getChildAt(2);
+        TextView summary = (TextView) text.getChildAt(1);
         summary.setText(it.summary);
         summary.setVisibility(TextUtils.isEmpty(it.summary) ? View.GONE : View.VISIBLE);
         row.setIcons(it.read ? R.drawable.ic_dot : R.drawable.ic_circle, it.starred ? R.drawable.ic_star_border : R.drawable.ic_star);

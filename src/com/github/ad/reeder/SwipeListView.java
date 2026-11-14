@@ -2,7 +2,9 @@ package com.github.ad.reeder;
 
 import android.content.Context;
 import android.graphics.Rect;
+import android.os.Build;
 import android.view.Gravity;
+import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
@@ -63,6 +65,7 @@ final class SwipeListView extends ListView {
     private int mode;
     private Row swipeRow;
     private int swipePos;
+    private boolean armed;
 
     SwipeListView(Context c) {
         super(c);
@@ -106,6 +109,7 @@ final class SwipeListView extends ListView {
                             swipeRow = (Row) v;
                             swipePos = pos;
                             mode = 1;
+                            armed = false;
                             cancelSuper(e);
                             getParent().requestDisallowInterceptTouchEvent(true);
                         }
@@ -116,6 +120,10 @@ final class SwipeListView extends ListView {
                 }
                 if (mode == 1) {
                     swipeRow.setOffset(dx - Math.signum(dx) * slop);
+                    boolean over = Math.abs(dx) > getWidth() * 0.25f;
+                    if (over && !armed) performHapticFeedback(Build.VERSION.SDK_INT >= 34 ? HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE
+                            : Build.VERSION.SDK_INT >= 30 ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.KEYBOARD_TAP);
+                    armed = over;
                     return true;
                 }
                 if (mode == 2) {
@@ -128,7 +136,7 @@ final class SwipeListView extends ListView {
             case MotionEvent.ACTION_CANCEL:
                 if (mode == 1) {
                     Row row = swipeRow;
-                    boolean fire = e.getActionMasked() == MotionEvent.ACTION_UP && Math.abs(dx) > getWidth() * 0.25f;
+                    boolean fire = e.getActionMasked() == MotionEvent.ACTION_UP && armed;
                     android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(row.front.getTranslationX(), 0);
                     a.setDuration(200);
                     a.addUpdateListener(an -> row.setOffset((float) an.getAnimatedValue()));

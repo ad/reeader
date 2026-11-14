@@ -57,6 +57,25 @@ final class Logic {
         return out;
     }
 
+    private static final Pattern IMG = Pattern.compile("<img\\b[^>]*>", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SRC = Pattern.compile("\\ssrc\\s*=\\s*[\"']([^\"']+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern PIXEL = Pattern.compile("\\s(width|height)\\s*=\\s*[\"']?1[\"'\\s/>]", Pattern.CASE_INSENSITIVE);
+
+    static String firstImage(String html) {
+        if (html == null) return null;
+        Matcher m = IMG.matcher(html);
+        while (m.find()) {
+            String tag = m.group();
+            Matcher src = SRC.matcher(tag);
+            if (PIXEL.matcher(tag).find() || !src.find()) continue;
+            String u = src.group(1).replace("&amp;", "&");
+            if (u.startsWith("//")) u = "https:" + u;
+            if (u.startsWith("http://")) u = "https://" + u.substring(7);
+            if (u.startsWith("http")) return u;
+        }
+        return null;
+    }
+
     static long startOfDay(long ms, TimeZone tz) {
         Calendar c = Calendar.getInstance(tz);
         c.setTimeInMillis(ms);
@@ -74,6 +93,14 @@ final class Logic {
         SimpleDateFormat f = new SimpleDateFormat(sameYear(ms, now, tz) ? "EEEE, MMMM d" : "EEEE, MMMM d, yyyy", Locale.US);
         f.setTimeZone(tz);
         return f.format(ms).toUpperCase(Locale.US);
+    }
+
+    static String syncLabel(long ms, long now, TimeZone tz) {
+        long day = startOfDay(ms, tz), today = startOfDay(now, tz);
+        String d = day == today ? "'Today'" : day == startOfDay(today - 1, tz) ? "'Yesterday'" : sameYear(ms, now, tz) ? "MMMM d" : "MMMM d, yyyy";
+        SimpleDateFormat f = new SimpleDateFormat(d + " 'at' HH:mm", Locale.US);
+        f.setTimeZone(tz);
+        return f.format(ms);
     }
 
     static String articleDate(long ms, TimeZone tz) {

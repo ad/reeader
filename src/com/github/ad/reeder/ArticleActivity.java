@@ -46,7 +46,7 @@ public class ArticleActivity extends Activity {
 
         LinearLayout root = Ui.column(this);
         root.addView(Ui.topBar(this, Ui.icon(this, R.drawable.ic_close, v -> finish()), null,
-                Ui.icon(this, R.drawable.ic_share, v -> share())));
+                Ui.icon(this, R.drawable.ic_share, v -> share(this, item))));
 
         PullFrame frame = new PullFrame(this);
         fetcher = new WebView(this);
@@ -306,10 +306,10 @@ public class ArticleActivity extends Activity {
         return String.format("#%06X", Ui.color(this, res) & 0xFFFFFF);
     }
 
-    private void share() {
-        if (item == null || item.url == null) return;
+    static void share(Activity a, Db.Item it) {
+        if (it == null || it.url == null) return;
         Intent i = new Intent(Intent.ACTION_SEND).setType("text/plain")
-                .putExtra(Intent.EXTRA_SUBJECT, item.title).putExtra(Intent.EXTRA_TEXT, item.url);
-        startActivity(Intent.createChooser(i, null));
+                .putExtra(Intent.EXTRA_SUBJECT, it.title).putExtra(Intent.EXTRA_TEXT, it.url);
+        a.startActivity(Intent.createChooser(i, null));
     }
 }

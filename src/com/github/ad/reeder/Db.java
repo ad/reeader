@@ -22,7 +22,7 @@ final class Db extends SQLiteOpenHelper {
 
     static final class Item {
         long id, published;
-        String feedId, feedTitle, iconUrl, siteUrl, title, summary, url;
+        String feedId, feedTitle, iconUrl, siteUrl, title, summary, url, image;
         boolean read, starred;
     }
 
@@ -33,14 +33,14 @@ final class Db extends SQLiteOpenHelper {
     }
 
     Db(Context c) {
-        super(c, "reeder.db", null, 3);
+        super(c, "reeder.db", null, 4);
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE feeds(id TEXT PRIMARY KEY, title TEXT, category TEXT, icon_url TEXT, site_url TEXT)");
         db.execSQL("CREATE TABLE items(id INTEGER PRIMARY KEY, feed_id TEXT, title TEXT, summary TEXT, content TEXT,"
-                + " url TEXT, published INTEGER, read INTEGER, starred INTEGER, reader TEXT, tldr TEXT)");
+                + " url TEXT, published INTEGER, read INTEGER, starred INTEGER, reader TEXT, tldr TEXT, image TEXT)");
         db.execSQL("CREATE INDEX items_feed ON items(feed_id)");
         db.execSQL("CREATE INDEX items_published ON items(published)");
         db.execSQL("CREATE TABLE ops(seq INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, tag TEXT, add_tag INTEGER)");
@@ -50,6 +50,16 @@ final class Db extends SQLiteOpenHelper {
     public void onUpgrade(SQLiteDatabase db, int o, int n) {
         if (o < 2) db.execSQL("ALTER TABLE feeds ADD COLUMN site_url TEXT");
         if (o < 3) db.execSQL("ALTER TABLE items ADD COLUMN tldr TEXT");
+        if (o < 4) {
+            db.execSQL("ALTER TABLE items ADD COLUMN image TEXT");
+            // substr keeps each row well under the 2 MB CursorWindow limit
+            try (Cursor c = db.rawQuery("SELECT id, substr(content, 1, 100000) FROM items", null)) {
+                while (c.moveToNext()) {
+                    String img = Logic.firstImage(c.getString(1));
+                    if (img != null) db.execSQL("UPDATE items SET image=? WHERE id=?", new Object[]{img, c.getLong(0)});
+                }
+            }
+        }
     }
 
     void clear() {
@@ -124,7 +134,7 @@ final class Db extends SQLiteOpenHelper {
         }
         List<Item> out = new ArrayList<>();
         try (Cursor c = getReadableDatabase().rawQuery("SELECT i.id, i.feed_id, f.title, f.icon_url, i.title, i.summary, i.url,"
-                + " i.published, i.read, i.starred, f.site_url FROM items i LEFT JOIN feeds f ON f.id=i.feed_id WHERE " + where
+                + " i.published, i.read, i.starred, f.site_url, i.image FROM items i LEFT JOIN feeds f ON f.id=i.feed_id WHERE " + where
                 + " ORDER BY i.published DESC", args.toArray(new String[0]))) {
             while (c.moveToNext()) {
                 Item it = new Item();
@@ -139,6 +149,7 @@ final class Db extends SQLiteOpenHelper {
                 it.read = c.getInt(8) == 1;
                 it.starred = c.getInt(9) == 1;
                 it.siteUrl = c.getString(10);
+                it.image = c.getString(11);
                 out.add(it);
             }
         }

@@ -16,9 +16,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 public class MainActivity extends Activity implements Sync.Listener {
-    private static final int AGGREGATE = 0, SECTION = 1, FEED = 2, GAP = 3;
+    private static final int AGGREGATE = 0, SECTION = 1, FEED = 2, GAP = 3, FOLDERS = 4;
 
     private static final class Entry {
         int type;
@@ -30,6 +31,7 @@ public class MainActivity extends Activity implements Sync.Listener {
     private final List<Entry> entries = new ArrayList<>();
     private final java.util.Set<String> shown = new java.util.HashSet<>();
     private int shownFilter = -1;
+    private boolean alpha;
     private FilterBar filterBar;
     private SwipeListView list;
     private TextView status;
@@ -48,7 +50,7 @@ public class MainActivity extends Activity implements Sync.Listener {
         }
 
         public int getViewTypeCount() {
-            return 4;
+            return 5;
         }
 
         public int getItemViewType(int p) {
@@ -81,14 +83,20 @@ public class MainActivity extends Activity implements Sync.Listener {
 
         list = new SwipeListView(this);
         LinearLayout header = Ui.column(this);
-        header.setPadding(Ui.dp(this, 24), Ui.dp(this, 8), Ui.dp(this, 24), Ui.dp(this, 16));
+        header.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 10));
         TextView title = Ui.text(this, 34, R.color.text, true);
-        title.setText("Feeds");
+        title.setText("FreshRSS");
         header.addView(title);
         status = Ui.text(this, 13, R.color.text2, true);
         status.setSingleLine();
         status.setEllipsize(TextUtils.TruncateAt.END);
         header.addView(status);
+        View line = new View(this);
+        line.setBackgroundColor(Ui.color(this, R.color.divider));
+        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(Ui.dp(this, 170), Ui.dp(this, 1));
+        llp.gravity = Gravity.CENTER_HORIZONTAL;
+        llp.topMargin = Ui.dp(this, 12);
+        header.addView(line, llp);
         list.addHeaderView(header, null, false);
         list.setAdapter(adapter);
         list.setCallback(new SwipeListView.Callback() {
@@ -137,7 +145,9 @@ public class MainActivity extends Activity implements Sync.Listener {
 
     private void showStatus(boolean running) {
         String err = App.sync.error();
-        status.setText(running ? "Syncing…" : err != null ? "Sync failed: " + err : "");
+        long last = App.prefs.getLong("last_sync", 0);
+        status.setText(running ? "Syncing…" : err != null ? "Sync failed: " + err
+                : last > 0 ? Logic.syncLabel(last, System.currentTimeMillis(), TimeZone.getDefault()) : "");
         Ui.spin(refresh, running);
     }
 
@@ -158,9 +168,15 @@ public class MainActivity extends Activity implements Sync.Listener {
         entries.add(gap);
 
         List<Db.Feed> feeds = App.db.feeds();
-        boolean alpha = "alpha".equals(App.prefs.getString("sort", "folders"));
+        alpha = "alpha".equals(App.prefs.getString("sort", "folders"));
         if (alpha) Collections.sort(feeds, (a, b) -> a.title.compareToIgnoreCase(b.title));
+        Entry folders = new Entry();
+        folders.type = FOLDERS;
+        folders.title = alpha ? "Feeds" : "Folders";
+        entries.add(folders);
+        boolean hideAll = App.prefs.getBoolean("folders_collapsed", false);
         String current = null;
+        Entry section = null;
         for (Db.Feed f : feeds) {
             Integer n = counts.get(f.id);
             if (filter != App.ALL && n == null && !shown.contains(f.id)) continue;
@@ -168,12 +184,13 @@ public class MainActivity extends Activity implements Sync.Listener {
             String cat = f.category;
             if (!alpha && !cat.equals(current)) {
                 current = cat;
-                Entry s = new Entry();
-                s.type = SECTION;
-                s.title = cat;
-                entries.add(s);
+                section = new Entry();
+                section.type = SECTION;
+                section.title = cat;
+                if (!hideAll) entries.add(section);
             }
-            if (!alpha && App.prefs.getBoolean("collapsed:" + cat, false)) continue;
+            if (section != null && n != null) section.count += n;
+            if (hideAll || !alpha && App.prefs.getBoolean("collapsed:" + cat, false)) continue;
             Entry e = new Entry();
             e.type = FEED;
             e.feed = f;
@@ -184,8 +201,8 @@ public class MainActivity extends Activity implements Sync.Listener {
     }
 
     private void open(Entry e) {
-        if (e.type == SECTION) {
-            String key = "collapsed:" + e.title;
+        if (e.type == SECTION || e.type == FOLDERS) {
+            String key = e.type == FOLDERS ? "folders_collapsed" : "collapsed:" + e.title;
             App.prefs.edit().putBoolean(key, !App.prefs.getBoolean(key, false)).apply();
             reload(false);
             return;
@@ -204,7 +221,7 @@ public class MainActivity extends Activity implements Sync.Listener {
         if (e.type == GAP) {
             if (v == null) {
                 v = new View(this);
-                v.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(this, 24)));
+                v.setLayoutParams(new android.widget.AbsListView.LayoutParams(-1, Ui.dp(this, 12)));
             }
             return v;
         }
@@ -212,13 +229,18 @@ public class MainActivity extends Activity implements Sync.Listener {
             LinearLayout row = Ui.row(this);
             row.setBackground(getDrawable(R.drawable.row_bg));
             row.setDuplicateParentStateEnabled(true);
-            row.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
+            ImageView fold = new ImageView(this);
+            fold.setImageResource(R.drawable.ic_chevron_down);
+            LinearLayout.LayoutParams flp = new LinearLayout.LayoutParams(Ui.dp(this, 18), Ui.dp(this, 18));
+            flp.rightMargin = Ui.dp(this, 6);
+            row.addView(fold, flp);
             ImageView icon = new ImageView(this);
             icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22));
-            ilp.rightMargin = Ui.dp(this, 8);
+            LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(Ui.dp(this, 20), Ui.dp(this, 20));
+            ilp.rightMargin = Ui.dp(this, 6);
             row.addView(icon, ilp);
-            TextView title = Ui.text(this, e.type == FEED ? 16 : 18, R.color.text, e.type != FEED);
+            boolean big = e.type == AGGREGATE || e.type == FOLDERS;
+            TextView title = Ui.text(this, big ? 18 : 16, R.color.text, e.type != FEED);
             title.setSingleLine();
             title.setEllipsize(TextUtils.TruncateAt.END);
             row.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
@@ -229,25 +251,26 @@ public class MainActivity extends Activity implements Sync.Listener {
             row.addView(chevron, new LinearLayout.LayoutParams(Ui.dp(this, 22), Ui.dp(this, 22)));
             LinearLayout wrap = new LinearLayout(this);
             wrap.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
-            wrap.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, e.type == FEED ? 41 : 48)));
+            wrap.addView(row, new LinearLayout.LayoutParams(-1, Ui.dp(this, e.type == AGGREGATE ? 44 : e.type == FOLDERS ? 36 : 34)));
             v = wrap;
         }
         LinearLayout row = (LinearLayout) ((LinearLayout) v).getChildAt(0);
-        ImageView icon = (ImageView) row.getChildAt(0);
-        TextView title = (TextView) row.getChildAt(1);
-        TextView count = (TextView) row.getChildAt(2);
-        ImageView chevron = (ImageView) row.getChildAt(3);
+        ImageView fold = (ImageView) row.getChildAt(0);
+        ImageView icon = (ImageView) row.getChildAt(1);
+        TextView title = (TextView) row.getChildAt(2);
+        TextView count = (TextView) row.getChildAt(3);
+        ImageView chevron = (ImageView) row.getChildAt(4);
+        int left = e.type == SECTION ? 6 : e.type == FEED && !alpha ? 30 : 8;
+        row.setPadding(Ui.dp(this, left), 0, Ui.dp(this, e.type == FOLDERS ? 2 : 8), 0);
+        fold.setVisibility(e.type == SECTION ? View.VISIBLE : View.GONE);
         icon.setVisibility(e.type == FEED ? View.VISIBLE : View.GONE);
-        chevron.setVisibility(e.type == SECTION ? View.VISIBLE : View.GONE);
-        count.setVisibility(e.type == SECTION ? View.GONE : View.VISIBLE);
-        if (e.type == SECTION) {
-            title.setText(e.title);
-            chevron.setRotation(App.prefs.getBoolean("collapsed:" + e.title, false) ? -90 : 0);
-        } else {
-            title.setText(e.type == FEED ? e.feed.title : e.title);
-            count.setText(e.count > 0 ? String.format("%,d", e.count) : "");
-            if (e.type == FEED) Icons.load(icon, e.feed.iconUrl, e.feed.siteUrl);
-        }
+        chevron.setVisibility(e.type == FOLDERS ? View.VISIBLE : View.GONE);
+        count.setVisibility(e.type == FOLDERS ? View.GONE : View.VISIBLE);
+        title.setText(e.type == FEED ? e.feed.title : e.title);
+        if (e.type == SECTION) fold.setRotation(App.prefs.getBoolean("collapsed:" + e.title, false) ? -90 : 0);
+        if (e.type == FOLDERS) chevron.setRotation(App.prefs.getBoolean("folders_collapsed", false) ? -90 : 0);
+        if (e.type != FOLDERS) count.setText(e.count > 0 ? String.format("%,d", e.count) : "");
+        if (e.type == FEED) Icons.load(icon, e.feed.iconUrl, e.feed.siteUrl);
         row.setGravity(Gravity.CENTER_VERTICAL);
         return v;
     }
