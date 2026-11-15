@@ -13,6 +13,7 @@ import java.util.List;
 
 final class GReader implements Backend {
     private final Api api;
+    private final Sids sids = new Sids();
 
     GReader(Api api) {
         this.api = api;
@@ -44,11 +45,11 @@ final class GReader implements Backend {
     }
 
     public List<ContentValues> items(List<Long> ids) throws IOException, JSONException {
-        return parseItems(api.post("stream/items/contents?output=json", Api.idsForm(ids)));
+        return parseItems(api.post("stream/items/contents?output=json", idsForm(ids)));
     }
 
     public void mark(List<Long> ids, String tag, boolean on) throws IOException {
-        api.post("edit-tag", Api.idsForm(ids) + (on ? "&a=" : "&r=") + Api.enc(tag));
+        api.post("edit-tag", idsForm(ids) + (on ? "&a=" : "&r=") + Api.enc(tag));
     }
 
     private List<Long> ids(String stream, String exclude) throws IOException, JSONException {
@@ -60,13 +61,30 @@ final class GReader implements Backend {
                     + (cont != null ? "&c=" + Api.enc(cont) : "");
             JSONObject o = new JSONObject(api.get(q));
             JSONArray refs = o.optJSONArray("itemRefs");
-            if (refs != null) for (int i = 0; i < refs.length(); i++) out.add(Long.parseLong(refs.getJSONObject(i).getString("id")));
+            if (refs != null) for (int i = 0; i < refs.length(); i++) out.add(id(refs.getJSONObject(i).getString("id")));
             cont = o.has("continuation") && !o.isNull("continuation") ? o.getString("continuation") : null;
         } while (cont != null && !cont.isEmpty());
         return out;
     }
 
-    private static List<ContentValues> parseItems(String json) throws JSONException {
+    private long id(String raw) {
+        try {
+            return Logic.parseItemId(raw);
+        } catch (NumberFormatException e) {
+            return sids.id(raw.startsWith(Logic.ITEM_PREFIX) ? raw.substring(Logic.ITEM_PREFIX.length()) : raw);
+        }
+    }
+
+    private String idsForm(List<Long> ids) {
+        StringBuilder sb = new StringBuilder();
+        for (long id : ids) {
+            String sid = sids.sid(id);
+            sb.append("&i=").append(Api.enc(sid != null ? Logic.ITEM_PREFIX + sid : Logic.longItemId(id)));
+        }
+        return sb.substring(1);
+    }
+
+    private List<ContentValues> parseItems(String json) throws JSONException {
         JSONArray items = new JSONObject(json).getJSONArray("items");
         List<ContentValues> out = new ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
@@ -82,18 +100,9 @@ final class GReader implements Backend {
                 read |= Db.READ.equals(cats.getString(k));
                 starred |= Db.STARRED.equals(cats.getString(k));
             }
-            ContentValues v = new ContentValues();
-            v.put("id", Logic.parseItemId(o.getString("id")));
-            v.put("feed_id", o.getJSONObject("origin").getString("streamId"));
-            v.put("title", Html.fromHtml(o.optString("title"), 0).toString());
-            v.put("summary", Logic.stripHtml(content, 300));
-            v.put("content", content);
-            v.put("image", Logic.firstImage(content));
-            v.put("url", url);
-            v.put("published", o.optLong("published") * 1000);
-            v.put("read", read ? 1 : 0);
-            v.put("starred", starred ? 1 : 0);
-            out.add(v);
+            long id = id(o.getString("id"));
+            out.add(Backend.row(id, sids.seen(id), o.getJSONObject("origin").getString("streamId"),
+                    Html.fromHtml(o.optString("title"), 0).toString(), content, url, o.optLong("published") * 1000, read, starred));
         }
         return out;
     }

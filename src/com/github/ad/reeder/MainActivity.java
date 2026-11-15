@@ -11,6 +11,7 @@ import android.widget.BaseAdapter;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -34,7 +35,7 @@ public class MainActivity extends Activity implements Sync.Listener {
     private boolean alpha;
     private FilterBar filterBar;
     private SwipeListView list;
-    private TextView status;
+    private TextView status, title;
     private View refresh;
     private final BaseAdapter adapter = new BaseAdapter() {
         public int getCount() {
@@ -77,27 +78,24 @@ public class MainActivity extends Activity implements Sync.Listener {
         }
         LinearLayout root = Ui.column(this);
         refresh = Ui.refreshButton(this, v -> App.sync.start());
-        root.addView(Ui.topBar(this,
-                Ui.icon(this, R.drawable.ic_back, v -> startActivity(new Intent(this, SettingsActivity.class))),
-                refresh, null));
-
-        list = new SwipeListView(this);
-        LinearLayout header = Ui.column(this);
-        header.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 10));
-        TextView title = Ui.text(this, 34, R.color.text, true);
-        title.setText(Service.of(App.prefs.getString("type", null)).title);
-        header.addView(title);
+        LinearLayout bar = Ui.row(this);
+        bar.setPadding(Ui.dp(this, 4), 0, Ui.dp(this, 4), 0);
+        bar.addView(Ui.icon(this, R.drawable.ic_back, v -> startActivity(new Intent(this, SettingsActivity.class))));
+        title = Ui.text(this, 20, R.color.text, true);
+        title.setSingleLine();
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        bar.addView(title, new LinearLayout.LayoutParams(0, -2, 1));
         status = Ui.text(this, 13, R.color.text2, true);
         status.setSingleLine();
         status.setEllipsize(TextUtils.TruncateAt.END);
-        header.addView(status);
-        View line = new View(this);
-        line.setBackgroundColor(Ui.color(this, R.color.divider));
-        LinearLayout.LayoutParams llp = new LinearLayout.LayoutParams(Ui.dp(this, 170), Ui.dp(this, 1));
-        llp.gravity = Gravity.CENTER_HORIZONTAL;
-        llp.topMargin = Ui.dp(this, 12);
-        header.addView(line, llp);
-        list.addHeaderView(header, null, false);
+        status.setMaxWidth(Ui.dp(this, 160));
+        status.setPadding(Ui.dp(this, 8), 0, Ui.dp(this, 4), 0);
+        status.setOnClickListener(v -> Toast.makeText(this, status.getText(), Toast.LENGTH_LONG).show());
+        bar.addView(status);
+        bar.addView(refresh);
+        root.addView(bar);
+
+        list = new SwipeListView(this);
         list.setAdapter(adapter);
         list.setCallback(new SwipeListView.Callback() {
             public void onRefresh() {
@@ -127,6 +125,8 @@ public class MainActivity extends Activity implements Sync.Listener {
         App.sync.addListener(this);
         Update.check(this);
         filterBar.select(App.filter());
+        String t = App.prefs.getString("title", Service.of(App.prefs.getString("type", null)).title);
+        title.setText(t);
         showStatus(App.sync.running());
         reload(false);
     }

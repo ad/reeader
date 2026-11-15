@@ -4,7 +4,8 @@ import java.io.IOException;
 
 abstract class Service {
     static final Service FRESHRSS = new FreshRss();
-    static final Service[] ALL = {new BazQux(), FRESHRSS, new Miniflux(), new GoogleReader()};
+    static final Service[] ALL = {new Feedbin(), new Feedly(), new NewsBlur(), new OldReader(), new Inoreader(), new BazQux(),
+            FRESHRSS, new Miniflux(), new GoogleReader()};
 
     final String id, title, subtitle, host, hint;
 
@@ -23,6 +24,11 @@ abstract class Service {
 
     String serverHint() {
         return "Server, e.g. https://rss.example.com";
+    }
+
+    /** null hides the field: the service signs in with a single token. */
+    String userHint() {
+        return "Username";
     }
 
     String passwordHint() {

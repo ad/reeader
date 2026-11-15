@@ -1,8 +1,12 @@
 # Reeader
 
-Android-клиент RSS на Java. Источники: FreshRSS, BazQux Reader, Miniflux и любой сервер с Google Reader API.
+Android-клиент RSS на Java. Источники: Feedbin, Feedly, NewsBlur, The Old Reader, Inoreader, BazQux Reader, FreshRSS, Miniflux и любой сервер с Google Reader API.
 
 Каждый источник описан своим классом-наследником `Service`: название, подсказки, вход и `Backend` для синхронизации. Сервисы на Google Reader API наследуют `GReaderService`. Новый источник: класс в `src/`, строка в `Service.ALL`.
+
+Inoreader пускает в API только с ключами приложения: `INOREADER_APP_ID` и `INOREADER_APP_KEY` из окружения сборки (в CI это секреты). Feedly входит по API-токену, Feedly выдаёт его только на тарифе Enterprise.
+
+`test/smoke.sh` проверяет живые API тестовыми аккаунтами из `.env` (он в `.gitignore`).
 
 ## Сборка
 

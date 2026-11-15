@@ -8,6 +8,7 @@ import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 public class LoginActivity extends Activity {
@@ -34,11 +35,12 @@ public class LoginActivity extends Activity {
         hint.setPadding(0, 0, 0, Ui.dp(this, 24));
         root.addView(hint);
         EditText server = field(s.serverHint(), InputType.TYPE_TEXT_VARIATION_URI);
-        EditText user = field("Username", InputType.TYPE_CLASS_TEXT);
+        EditText user = field(s.userHint(), InputType.TYPE_CLASS_TEXT);
         EditText pass = field(s.passwordHint(), InputType.TYPE_TEXT_VARIATION_PASSWORD);
         server.setText(App.prefs.getString("base", ""));
         user.setText(App.prefs.getString("user", ""));
-        for (EditText e : s.host == null ? new EditText[]{server, user, pass} : new EditText[]{user, pass}) {
+        for (EditText e : new EditText[]{server, user, pass}) {
+            if (e == server && s.host != null || e == user && s.userHint() == null) continue;
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, -2);
             lp.bottomMargin = Ui.dp(this, 12);
             root.addView(e, lp);
@@ -52,6 +54,11 @@ public class LoginActivity extends Activity {
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, Ui.dp(this, 48));
         blp.topMargin = Ui.dp(this, 12);
         root.addView(login, blp);
+        pass.setImeOptions(android.view.inputmethod.EditorInfo.IME_ACTION_GO);
+        pass.setOnEditorActionListener((v, action, ev) -> {
+            if (login.isEnabled()) login.performClick();
+            return true;
+        });
         login.setOnClickListener(v -> {
             String base = s.apiBase(server.getText().toString());
             String u = user.getText().toString().trim(), p = pass.getText().toString();
@@ -76,8 +83,12 @@ public class LoginActivity extends Activity {
     }
 
     private void pickService() {
+        LinearLayout outer = Ui.column(this);
+        ScrollView scroll = new ScrollView(this);
+        outer.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout root = Ui.column(this);
-        root.setPadding(Ui.dp(this, 16), Ui.dp(this, 48), Ui.dp(this, 16), 0);
+        scroll.addView(root);
+        root.setPadding(Ui.dp(this, 16), Ui.dp(this, 48), Ui.dp(this, 16), Ui.dp(this, 24));
         SettingsActivity.title(this, root, "Add Account", null);
         for (boolean hosted : new boolean[]{true, false}) {
             SettingsActivity.section(this, root, hosted ? "SERVICES" : "SELF-HOSTED");
@@ -88,7 +99,7 @@ public class LoginActivity extends Activity {
                 TextView label = (TextView) row.getChildAt(0);
                 row.removeView(label);
                 LinearLayout text = Ui.column(this);
-                text.addView(label);
+                text.addView(label, new LinearLayout.LayoutParams(-1, -2));
                 TextView sub = Ui.text(this, 13, R.color.text2, false);
                 sub.setText(s.subtitle);
                 text.addView(sub);
@@ -100,7 +111,7 @@ public class LoginActivity extends Activity {
                 row.setOnClickListener(v -> startActivity(new Intent(this, LoginActivity.class).putExtra("type", s.id)));
             }
         }
-        Ui.edgeToEdge(this, root);
+        Ui.edgeToEdge(this, outer);
     }
 
     private EditText field(String hint, int type) {

@@ -11,7 +11,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
+import java.util.Arrays;
 
 final class Api {
     static final class HttpException extends IOException {
@@ -23,40 +23,38 @@ final class Api {
         }
     }
 
+    static final String FORM = "application/x-www-form-urlencoded", JSON = "application/json";
+
     private final String base;
-    final String auth;
+    private final String[] headers;
     private String token;
 
-    Api(String base, String auth) {
+    Api(String base, String auth, String... extraHeaders) {
         this.base = base;
-        this.auth = auth;
+        headers = Arrays.copyOf(extraHeaders, extraHeaders.length + 2);
+        headers[extraHeaders.length] = "Authorization";
+        headers[extraHeaders.length + 1] = "GoogleLogin auth=" + auth;
     }
 
-    static String login(String base, String user, String pass) throws IOException {
-        String body = request(base + "/accounts/ClientLogin", null, "Email=" + enc(user) + "&Passwd=" + enc(pass));
+    static String login(String base, String user, String pass, String... headers) throws IOException {
+        String body = call("POST", base + "/accounts/ClientLogin", FORM, "Email=" + enc(user) + "&Passwd=" + enc(pass), headers);
         for (String line : body.split("\n")) if (line.startsWith("Auth=")) return line.substring(5).trim();
         throw new IOException("No Auth in response");
     }
 
     String get(String path) throws IOException {
-        return request(base + "/reader/api/0/" + path, auth, null);
+        return call("GET", base + "/reader/api/0/" + path, null, null, headers);
     }
 
     String post(String path, String form) throws IOException {
         if (token == null) token = get("token").trim();
         try {
-            return request(base + "/reader/api/0/" + path, auth, form + "&T=" + enc(token));
+            return call("POST", base + "/reader/api/0/" + path, FORM, form + "&T=" + enc(token), headers);
         } catch (HttpException e) {
             if (e.code != 401) throw e;
             token = get("token").trim();
-            return request(base + "/reader/api/0/" + path, auth, form + "&T=" + enc(token));
+            return call("POST", base + "/reader/api/0/" + path, FORM, form + "&T=" + enc(token), headers);
         }
-    }
-
-    static String idsForm(List<Long> ids) {
-        StringBuilder sb = new StringBuilder();
-        for (long id : ids) sb.append("&i=").append(enc(Logic.longItemId(id)));
-        return sb.substring(1);
     }
 
     static String enc(String s) {
@@ -67,21 +65,33 @@ final class Api {
         }
     }
 
-    private static String request(String url, String auth, String form) throws IOException {
+    /** The caller must disconnect. */
+    static HttpURLConnection connect(String method, String url, String type, String body, String... headers) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
         c.setConnectTimeout(15000);
         c.setReadTimeout(60000);
-        if (auth != null) c.setRequestProperty("Authorization", "GoogleLogin auth=" + auth);
+        c.setRequestMethod(method);
+        for (int i = 0; i < headers.length; i += 2) c.setRequestProperty(headers[i], headers[i + 1]);
         try {
-            if (form != null) {
+            if (body != null) {
                 c.setDoOutput(true);
-                c.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                c.setRequestProperty("Content-Type", type);
                 try (OutputStream o = c.getOutputStream()) {
-                    o.write(form.getBytes(StandardCharsets.UTF_8));
+                    o.write(body.getBytes(StandardCharsets.UTF_8));
                 }
             }
             int code = c.getResponseCode();
             if (code / 100 != 2) throw new HttpException(code, url);
+            return c;
+        } catch (IOException e) {
+            c.disconnect();
+            throw e;
+        }
+    }
+
+    static String call(String method, String url, String type, String body, String... headers) throws IOException {
+        HttpURLConnection c = connect(method, url, type, body, headers);
+        try {
             return read(c.getInputStream());
         } finally {
             c.disconnect();
@@ -106,7 +116,7 @@ final class Api {
             if (!s.startsWith("{")) throw new IOException(s.length() < 100 ? s : "HTTP " + code);
             JSONObject r = new JSONObject(s);
             if (!"success".equals(r.optString("status"))) throw new IOException(r.optString("message", "HTTP " + code));
-            return request(r.getString("sharing_url"), null, null);
+            return call("GET", r.getString("sharing_url"), null, null);
         } finally {
             c.disconnect();
         }

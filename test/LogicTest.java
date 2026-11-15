@@ -15,6 +15,10 @@ public class LogicTest {
         assert Logic.parseItemId("1763012345678901") == id;
         assert Logic.parseItemId("tag:google.com,2005:reader/item/ffffffffffffffff") == -1L;
 
+        assert Logic.hashId("a") == 0xaf63dc4c8601ec8cL && Logic.hashId("5d0cfa30041f1a9bec000003") != Logic.hashId("5d0cfa30041f1a9bec000004");
+
+        assert Logic.isoMillis("2013-02-03T01:00:19.000000Z") == 1359853219000L && Logic.isoMillis(null) == 0;
+
         assert Logic.releaseBuild("v0.1.26") == 26 && Logic.releaseBuild("v1") == -1 && Logic.releaseBuild("") == -1;
 
         Service fr = Service.FRESHRSS;

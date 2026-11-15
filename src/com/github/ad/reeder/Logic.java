@@ -22,6 +22,22 @@ final class Logic {
         return ITEM_PREFIX + "0000000000000000".substring(hex.length()) + hex;
     }
 
+    static long hashId(String s) {
+        long h = 0xcbf29ce484222325L;
+        for (int i = 0; i < s.length(); i++) h = (h ^ s.charAt(i)) * 0x100000001b3L;
+        return h;
+    }
+
+    static long isoMillis(String utc) {
+        SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
+        f.setTimeZone(TimeZone.getTimeZone("UTC"));
+        try {
+            return f.parse(utc.substring(0, 19)).getTime();
+        } catch (java.text.ParseException | IndexOutOfBoundsException | NullPointerException e) {
+            return 0;
+        }
+    }
+
     static int releaseBuild(String tag) {
         try {
             return Integer.parseInt(tag.substring(tag.lastIndexOf('.') + 1));

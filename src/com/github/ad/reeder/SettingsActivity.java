@@ -41,7 +41,24 @@ public class SettingsActivity extends Activity {
 
         section(this, body, "GENERAL");
         LinearLayout g = card(this, body);
-        valueRow(this, g, "Description", service.title, null);
+        String desc = App.prefs.getString("title", service.title);
+        valueRow(this, g, "Description", desc.isEmpty() ? "Hidden" : desc, v -> {
+            EditText e = new EditText(this);
+            e.setSingleLine();
+            e.setText(desc);
+            new AlertDialog.Builder(this).setTitle("Description")
+                    .setMessage("Shown above the subscriptions. Leave empty to hide it.").setView(e)
+                    .setPositiveButton("Save", (d, w) -> {
+                        App.prefs.edit().putString("title", e.getText().toString().trim()).apply();
+                        build();
+                    })
+                    .setNeutralButton("Default", (d, w) -> {
+                        App.prefs.edit().remove("title").apply();
+                        build();
+                    })
+                    .setNegativeButton("Cancel", null)
+                    .show();
+        });
         if (service.host == null) {
             TextView server = valueRow(this, g, "Server", App.prefs.getString("base", ""), null);
             ((TextView) ((LinearLayout) server.getParent()).getChildAt(0)).setTextColor(Ui.color(this, R.color.text2));
@@ -97,18 +114,25 @@ public class SettingsActivity extends Activity {
         });
         caption(this, body, "Get a token at 300.ya.ru. Article links are sent to Yandex for summarizing.");
 
+        section(this, body, "STORAGE");
+        LinearLayout st = card(this, body);
+        valueRow(this, st, "Articles", android.text.format.Formatter.formatShortFileSize(this, getDatabasePath("reeder.db").length()), null);
+        valueRow(this, st, "Cache", android.text.format.Formatter.formatShortFileSize(this, size(getCacheDir())), null);
+        LinearLayout cc = card(this, body);
+        cc.addView(centered("Clear Cache", v -> {
+            Icons.clear(this);
+            clearWebCache();
+            build();
+        }));
+        caption(this, body, "Cache holds feed icons, article images and web pages. Articles are kept by the setting above.");
+
         section(this, body, "ACCOUNT");
         LinearLayout a = card(this, body);
-        TextView remove = Ui.text(this, 16, R.color.text, false);
-        remove.setText("Remove Account…");
-        remove.setGravity(Gravity.CENTER);
-        remove.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
-        remove.setOnClickListener(v -> new AlertDialog.Builder(this)
+        a.addView(centered("Remove Account…", v -> new AlertDialog.Builder(this)
                 .setMessage("Remove this account and all downloaded articles?")
                 .setPositiveButton("Remove", (d, w) -> removeAccount())
                 .setNegativeButton("Cancel", null)
-                .show());
-        a.addView(remove);
+                .show()));
 
         try {
             TextView version = Ui.text(this, 12, R.color.text2, false);
@@ -119,6 +143,29 @@ public class SettingsActivity extends Activity {
         } catch (android.content.pm.PackageManager.NameNotFoundException e) {
             throw new AssertionError(e);
         }
+    }
+
+    private void clearWebCache() {
+        android.webkit.WebView w = new android.webkit.WebView(this);
+        w.clearCache(true);
+        w.destroy();
+    }
+
+    private TextView centered(String label, View.OnClickListener click) {
+        TextView t = Ui.text(this, 16, R.color.text, false);
+        t.setText(label);
+        t.setGravity(Gravity.CENTER);
+        t.setPadding(0, Ui.dp(this, 14), 0, Ui.dp(this, 14));
+        t.setOnClickListener(click);
+        return t;
+    }
+
+    private static long size(java.io.File f) {
+        java.io.File[] kids = f.listFiles();
+        if (kids == null) return f.length();
+        long n = 0;
+        for (java.io.File k : kids) n += size(k);
+        return n;
     }
 
     private void choice(LinearLayout card, String label, String key, String[] values, String[] labels, String def) {
@@ -145,6 +192,9 @@ public class SettingsActivity extends Activity {
         App.db.clear();
         App.prefs.edit().clear().apply();
         Icons.clear(this);
+        android.webkit.CookieManager.getInstance().removeAllCookies(null);
+        android.webkit.WebStorage.getInstance().deleteAllData();
+        clearWebCache();
         startActivity(new Intent(this, LoginActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
     }
 

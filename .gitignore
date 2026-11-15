@@ -5,3 +5,4 @@ reference-images/
 *.apk
 *.idsig
 signing.env
+.env

@@ -14,8 +14,18 @@ export JAVA_HOME=$JDK PATH=$JDK/bin:$PATH
 
 rm -rf $OUT && mkdir -p $OUT/gen $OUT/classes $OUT/dex $OUT/test
 
-$JDK/bin/javac -cp $AJ -sourcepath src -d $OUT/test test/LogicTest.java
-$JDK/bin/java -ea -cp $OUT/test com.github.ad.reeder.LogicTest
+mkdir -p $OUT/gen/com/github/ad/reeder
+cat > $OUT/gen/com/github/ad/reeder/Keys.java <<EOF
+package com.github.ad.reeder;
+
+final class Keys {
+    static final String INOREADER_APP_ID = "${INOREADER_APP_ID:-}";
+    static final String INOREADER_APP_KEY = "${INOREADER_APP_KEY:-}";
+}
+EOF
+
+$JDK/bin/javac -cp $AJ -sourcepath src:$OUT/gen -d $OUT/test test/LogicTest.java
+$JDK/bin/java -ea -cp $OUT/test:$AJ com.github.ad.reeder.LogicTest
 
 $BT/aapt2 compile --dir res -o $OUT/res.zip
 $BT/aapt2 link -o $OUT/app.unsigned.apk -I $AJ --manifest AndroidManifest.xml \

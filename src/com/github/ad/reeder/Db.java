@@ -33,14 +33,14 @@ final class Db extends SQLiteOpenHelper {
     }
 
     Db(Context c) {
-        super(c, "reeder.db", null, 4);
+        super(c, "reeder.db", null, 5);
     }
 
     @Override
     public void onCreate(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE feeds(id TEXT PRIMARY KEY, title TEXT, category TEXT, icon_url TEXT, site_url TEXT)");
         db.execSQL("CREATE TABLE items(id INTEGER PRIMARY KEY, feed_id TEXT, title TEXT, summary TEXT, content TEXT,"
-                + " url TEXT, published INTEGER, read INTEGER, starred INTEGER, reader TEXT, tldr TEXT, image TEXT)");
+                + " url TEXT, published INTEGER, read INTEGER, starred INTEGER, reader TEXT, tldr TEXT, image TEXT, sid TEXT)");
         db.execSQL("CREATE INDEX items_feed ON items(feed_id)");
         db.execSQL("CREATE INDEX items_published ON items(published)");
         db.execSQL("CREATE TABLE ops(seq INTEGER PRIMARY KEY AUTOINCREMENT, item_id INTEGER, tag TEXT, add_tag INTEGER)");
@@ -60,6 +60,7 @@ final class Db extends SQLiteOpenHelper {
                 }
             }
         }
+        if (o < 5) db.execSQL("ALTER TABLE items ADD COLUMN sid TEXT");
     }
 
     void clear() {
@@ -67,6 +68,7 @@ final class Db extends SQLiteOpenHelper {
         db.delete("feeds", null, null);
         db.delete("items", null, null);
         db.delete("ops", null, null);
+        db.execSQL("VACUUM");
     }
 
     List<Feed> feeds() {
@@ -193,6 +195,12 @@ final class Db extends SQLiteOpenHelper {
     String content(long id) {
         try (Cursor c = getReadableDatabase().rawQuery("SELECT content FROM items WHERE id=?", new String[]{"" + id})) {
             return c.moveToFirst() ? c.getString(0) : "";
+        }
+    }
+
+    String sid(long id) {
+        try (Cursor c = getReadableDatabase().rawQuery("SELECT sid FROM items WHERE id=?", new String[]{"" + id})) {
+            return c.moveToFirst() ? c.getString(0) : null;
         }
     }
 

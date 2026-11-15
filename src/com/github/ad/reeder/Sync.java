@@ -65,6 +65,7 @@ final class Sync {
                 run();
                 App.prefs.edit().putLong("last_sync", System.currentTimeMillis()).apply();
             } catch (Exception e) {
+                android.util.Log.w("Reeader", "sync failed", e);
                 error = e.getMessage() == null ? e.toString() : e.getMessage();
             }
             this.error = error;
