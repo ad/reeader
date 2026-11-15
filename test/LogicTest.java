@@ -17,9 +17,13 @@ public class LogicTest {
 
         assert Logic.releaseBuild("v0.1.26") == 26 && Logic.releaseBuild("v1") == -1 && Logic.releaseBuild("") == -1;
 
-        assert Logic.apiBase("rss.example.com").equals("https://rss.example.com/api/greader.php");
-        assert Logic.apiBase("https://rss.example.com/api/greader.php/").equals("https://rss.example.com/api/greader.php");
-        assert Logic.apiBase("http://h/fr/api").equals("http://h/fr/api/greader.php");
+        Service fr = Service.FRESHRSS;
+        assert fr.apiBase("rss.example.com").equals("https://rss.example.com/api/greader.php");
+        assert fr.apiBase("https://rss.example.com/api/greader.php/").equals("https://rss.example.com/api/greader.php");
+        assert fr.apiBase("http://h/fr/api").equals("http://h/fr/api/greader.php");
+        assert Service.of("MINIFLUX").apiBase(" mf.example.com/ ").equals("https://mf.example.com");
+        assert Service.of("BAZQUX").apiBase("").equals("https://bazqux.com");
+        assert Service.of(null) == fr && Service.of("READER") instanceof GoogleReader;
 
         assert Logic.stripHtml("<p>Hi&nbsp;<b>there</b></p><script>x()</script>", 100).equals("Hi there");
         assert Logic.stripHtml("abcdef", 3).equals("abc");

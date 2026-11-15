@@ -36,13 +36,16 @@ public class SettingsActivity extends Activity {
 
     private void build() {
         body.removeAllViews();
-        title(this, body, "FreshRSS", App.prefs.getString("user", ""));
+        Service service = Service.of(App.prefs.getString("type", null));
+        title(this, body, service.title, App.prefs.getString("user", ""));
 
         section(this, body, "GENERAL");
         LinearLayout g = card(this, body);
-        valueRow(this, g, "Description", "FreshRSS", null);
-        TextView server = valueRow(this, g, "Server", App.prefs.getString("base", ""), null);
-        ((TextView) ((LinearLayout) server.getParent()).getChildAt(0)).setTextColor(Ui.color(this, R.color.text2));
+        valueRow(this, g, "Description", service.title, null);
+        if (service.host == null) {
+            TextView server = valueRow(this, g, "Server", App.prefs.getString("base", ""), null);
+            ((TextView) ((LinearLayout) server.getParent()).getChildAt(0)).setTextColor(Ui.color(this, R.color.text2));
+        }
 
         section(this, body, "SYNCING");
         LinearLayout s = card(this, body);

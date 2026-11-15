@@ -30,15 +30,6 @@ final class Logic {
         }
     }
 
-    static String apiBase(String url) {
-        String u = url.trim();
-        if (!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
-        while (u.endsWith("/")) u = u.substring(0, u.length() - 1);
-        if (u.endsWith("/api/greader.php")) return u;
-        if (u.endsWith("/api")) return u + "/greader.php";
-        return u + "/api/greader.php";
-    }
-
     static String stripHtml(String html, int max) {
         if (html == null) return "";
         String s = html.replaceAll("(?is)<(script|style)[^>]*>.*?</\\1>", " ")

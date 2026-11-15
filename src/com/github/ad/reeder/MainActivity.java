@@ -85,7 +85,7 @@ public class MainActivity extends Activity implements Sync.Listener {
         LinearLayout header = Ui.column(this);
         header.setPadding(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 10));
         TextView title = Ui.text(this, 34, R.color.text, true);
-        title.setText("FreshRSS");
+        title.setText(Service.of(App.prefs.getString("type", null)).title);
         header.addView(title);
         status = Ui.text(this, 13, R.color.text2, true);
         status.setSingleLine();

@@ -1,6 +1,8 @@
-# Reeader for FreshRSS
+# Reeader
 
-Android-клиент FreshRSS на Java. Работает через Google Reader API (`/api/greader.php`).
+Android-клиент RSS на Java. Источники: FreshRSS, BazQux Reader, Miniflux и любой сервер с Google Reader API.
+
+Каждый источник описан своим классом-наследником `Service`: название, подсказки, вход и `Backend` для синхронизации. Сервисы на Google Reader API наследуют `GReaderService`. Новый источник: класс в `src/`, строка в `Service.ALL`.
 
 ## Сборка
 

@@ -14,7 +14,7 @@ export JAVA_HOME=$JDK PATH=$JDK/bin:$PATH
 
 rm -rf $OUT && mkdir -p $OUT/gen $OUT/classes $OUT/dex $OUT/test
 
-$JDK/bin/javac -d $OUT/test src/com/github/ad/reeder/Logic.java test/LogicTest.java
+$JDK/bin/javac -cp $AJ -sourcepath src -d $OUT/test test/LogicTest.java
 $JDK/bin/java -ea -cp $OUT/test com.github.ad.reeder.LogicTest
 
 $BT/aapt2 compile --dir res -o $OUT/res.zip
