@@ -18,6 +18,10 @@ public class LogicTest {
         assert Logic.hashId("a") == 0xaf63dc4c8601ec8cL && Logic.hashId("5d0cfa30041f1a9bec000003") != Logic.hashId("5d0cfa30041f1a9bec000004");
 
         assert Logic.isoMillis("2013-02-03T01:00:19.000000Z") == 1359853219000L && Logic.isoMillis(null) == 0;
+        assert Logic.recentSince(0, 100 * 86400_000L, 30) == 70 * 86400_000L;
+        assert Logic.recentSince(0, 100 * 86400_000L, 0) == 70 * 86400_000L;
+        assert Logic.recentSince(5 * 3600_000L, 100 * 86400_000L, 30) == 70 * 86400_000L;
+        assert Logic.recentSince(99 * 86400_000L, 100 * 86400_000L, 30) == 99 * 86400_000L - 3600_000L;
 
         assert Logic.releaseBuild("v0.1.26") == 26 && Logic.releaseBuild("v1") == -1 && Logic.releaseBuild("") == -1;
 

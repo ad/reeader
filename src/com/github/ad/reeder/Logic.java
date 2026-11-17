@@ -28,6 +28,11 @@ final class Logic {
         return h;
     }
 
+    static long recentSince(long lastMs, long nowMs, int keepDays) {
+        // overlap absorbs clock skew between this device and the server's crawl timestamps
+        return Math.max(lastMs - 3600_000L, nowMs - (keepDays > 0 ? keepDays : 30) * 86400_000L);
+    }
+
     static long isoMillis(String utc) {
         SimpleDateFormat f = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.US);
         f.setTimeZone(TimeZone.getTimeZone("UTC"));

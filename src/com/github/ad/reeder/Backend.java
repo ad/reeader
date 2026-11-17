@@ -15,6 +15,11 @@ interface Backend {
 
     List<Long> starredIds() throws IOException, JSONException;
 
+    // shortcut: NewsBlur keeps this default, so its All shows only unread and starred; upgrade via river_stories read_filter=all.
+    default List<Long> recentIds(long sinceMs) throws IOException, JSONException {
+        return java.util.Collections.emptyList();
+    }
+
     List<ContentValues> items(List<Long> ids) throws IOException, JSONException;
 
     void mark(List<Long> ids, String tag, boolean on) throws IOException;

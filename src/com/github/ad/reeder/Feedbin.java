@@ -81,6 +81,23 @@ final class Feedbin extends Service {
             return ids("starred_entries.json");
         }
 
+        public List<Long> recentIds(long sinceMs) throws IOException, JSONException {
+            List<Long> out = new ArrayList<>();
+            String since = Api.enc(java.time.Instant.ofEpochMilli(sinceMs).toString());
+            for (int page = 1; ; page++) {
+                JSONArray a;
+                try {
+                    a = new JSONArray(get("entries.json?per_page=100&since=" + since + "&page=" + page));
+                } catch (Api.HttpException e) {
+                    if (e.code == 404) break;
+                    throw e;
+                }
+                for (int i = 0; i < a.length(); i++) out.add(a.getJSONObject(i).getLong("id"));
+                if (a.length() < 100) break;
+            }
+            return out;
+        }
+
         private List<Long> ids(String path) throws IOException, JSONException {
             JSONArray a = new JSONArray(get(path));
             List<Long> out = new ArrayList<>();

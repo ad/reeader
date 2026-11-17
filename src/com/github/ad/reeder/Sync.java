@@ -86,6 +86,8 @@ final class Sync {
 
     private void run() throws IOException, JSONException {
         String auth = App.prefs.getString("auth", "");
+        long now = System.currentTimeMillis();
+        int keepDays = App.prefs.getInt("keep_days", 30);
         Backend b = backend();
         flushOps(b);
         List<Db.Feed> feeds = b.subscriptions();
@@ -95,6 +97,7 @@ final class Sync {
         List<Long> starred = b.starredIds();
         java.util.Set<Long> all = new java.util.LinkedHashSet<>(unread);
         all.addAll(starred);
+        all.addAll(b.recentIds(Logic.recentSince(App.prefs.getLong("recent_sync", 0), now, keepDays)));
         List<Long> missing = App.db.missing(all);
         for (int i = 0; i < missing.size(); i += 100) {
             List<ContentValues> items = b.items(missing.subList(i, Math.min(missing.size(), i + 100)));
@@ -103,8 +106,8 @@ final class Sync {
         }
         alive(auth);
         App.db.applyServerState(unread, starred);
-        int keepDays = App.prefs.getInt("keep_days", 30);
         if (keepDays > 0) App.db.prune(System.currentTimeMillis() - keepDays * 86400_000L);
+        App.prefs.edit().putLong("recent_sync", now).apply();
     }
 
     private static void alive(String auth) throws IOException {

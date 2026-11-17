@@ -37,11 +37,15 @@ final class GReader implements Backend {
     }
 
     public List<Long> unreadIds() throws IOException, JSONException {
-        return ids("user/-/state/com.google/reading-list", Db.READ);
+        return ids("user/-/state/com.google/reading-list", "&xt=" + Api.enc(Db.READ));
     }
 
     public List<Long> starredIds() throws IOException, JSONException {
-        return ids(Db.STARRED, null);
+        return ids(Db.STARRED, "");
+    }
+
+    public List<Long> recentIds(long sinceMs) throws IOException, JSONException {
+        return ids("user/-/state/com.google/reading-list", "&ot=" + sinceMs / 1000);
     }
 
     public List<ContentValues> items(List<Long> ids) throws IOException, JSONException {
@@ -52,12 +56,11 @@ final class GReader implements Backend {
         api.post("edit-tag", idsForm(ids) + (on ? "&a=" : "&r=") + Api.enc(tag));
     }
 
-    private List<Long> ids(String stream, String exclude) throws IOException, JSONException {
+    private List<Long> ids(String stream, String extra) throws IOException, JSONException {
         List<Long> out = new ArrayList<>();
         String cont = null;
         do {
-            String q = "stream/items/ids?output=json&n=10000&s=" + Api.enc(stream)
-                    + (exclude != null ? "&xt=" + Api.enc(exclude) : "")
+            String q = "stream/items/ids?output=json&n=10000&s=" + Api.enc(stream) + extra
                     + (cont != null ? "&c=" + Api.enc(cont) : "");
             JSONObject o = new JSONObject(api.get(q));
             JSONArray refs = o.optJSONArray("itemRefs");

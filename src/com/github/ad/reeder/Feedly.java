@@ -77,6 +77,10 @@ final class Feedly extends Service {
             return ids(stream("tag/global.saved"), "");
         }
 
+        public List<Long> recentIds(long sinceMs) throws IOException, JSONException {
+            return ids(stream("category/global.all"), "&newerThan=" + sinceMs);
+        }
+
         private List<Long> ids(String streamId, String extra) throws IOException, JSONException {
             List<Long> out = new ArrayList<>();
             String cont = null;
