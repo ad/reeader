@@ -17,6 +17,7 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -24,6 +25,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ArticlesActivity extends Activity implements Sync.Listener {
     private final List<Db.Item> items = new ArrayList<>();
@@ -35,6 +38,8 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
     private EditText search;
     private int lastFirst;
     private boolean syncing, userScrolling;
+    private ExecutorService linkCheck;
+    private int linksDone, linksTotal;
 
     private final BaseAdapter adapter = new BaseAdapter() {
         public int getCount() {
@@ -145,7 +150,7 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         root.addView(list, new LinearLayout.LayoutParams(-1, 0, 1));
         root.addView(new FilterBar(this,
                 Ui.icon(this, R.drawable.ic_search, v -> toggleSearch()),
-                Ui.icon(this, R.drawable.ic_check, v -> markAll()),
+                bar(Ui.icon(this, R.drawable.ic_link_off, v -> checkLinks()), Ui.icon(this, R.drawable.ic_check, v -> markAll())),
                 f -> reload()));
         Ui.edgeToEdge(this, root);
         reload();
@@ -165,6 +170,12 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
     protected void onPause() {
         super.onPause();
         App.sync.removeListener(this);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (linkCheck != null) linkCheck.shutdownNow();
     }
 
     @Override
@@ -201,6 +212,10 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         Ui.spin(refresh, syncing);
         if (syncing) {
             status.setText("Syncing…");
+            return;
+        }
+        if (linkCheck != null) {
+            status.setText("Checking links… " + linksDone + "/" + linksTotal);
             return;
         }
         if (App.sync.error() != null) {
@@ -330,6 +345,92 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
                 .setPositiveButton("Mark as Read", (d, w) -> {
                     for (Db.Item it : items) it.read = true;
                     App.sync.setFlag(ids, Db.READ, true);
+                    adapter.notifyDataSetChanged();
+                    updateStatus();
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    private LinearLayout bar(View... icons) {
+        LinearLayout r = Ui.row(this);
+        for (View v : icons) r.addView(v);
+        return r;
+    }
+
+    /** Requests every unread article's link; offers to mark the ones answering 4xx/5xx as read. */
+    private void checkLinks() {
+        if (linkCheck != null) return;
+        List<Db.Item> todo = new ArrayList<>();
+        for (Db.Item it : items) if (!it.read && !TextUtils.isEmpty(it.url)) todo.add(it);
+        if (todo.isEmpty()) {
+            Toast.makeText(this, "No unread articles to check", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        int[] codes = new int[todo.size()];
+        linksDone = 0;
+        linksTotal = todo.size();
+        linkCheck = Executors.newFixedThreadPool(6);
+        for (int i = 0; i < todo.size(); i++) {
+            int n = i;
+            linkCheck.execute(() -> {
+                int code;
+                try {
+                    code = Api.status(todo.get(n).url);
+                } catch (Exception e) {
+                    code = 0; // unreachable for network reasons, not a dead page
+                }
+                int c = code;
+                runOnUiThread(() -> {
+                    if (isDestroyed()) return;
+                    codes[n] = c;
+                    if (++linksDone == linksTotal) {
+                        linkCheck.shutdown();
+                        linkCheck = null;
+                        showDeadLinks(todo, codes);
+                    }
+                    updateStatus();
+                });
+            });
+        }
+        updateStatus();
+    }
+
+    private void showDeadLinks(List<Db.Item> checked, int[] codes) {
+        List<Db.Item> dead = new ArrayList<>();
+        List<CharSequence> labels = new ArrayList<>();
+        for (int i = 0; i < codes.length; i++) {
+            if (codes[i] < 400 || codes[i] > 599) continue;
+            Db.Item it = checked.get(i);
+            dead.add(it);
+            String info = "HTTP " + codes[i] + (it.feedTitle == null ? "" : " · " + it.feedTitle);
+            android.text.SpannableString s = new android.text.SpannableString(it.title + "\n" + info);
+            int from = s.length() - info.length();
+            s.setSpan(new android.text.style.RelativeSizeSpan(0.8f), from, s.length(), 0);
+            s.setSpan(new android.text.style.ForegroundColorSpan(Ui.color(this, R.color.text2)), from, s.length(), 0);
+            labels.add(s);
+        }
+        if (dead.isEmpty()) {
+            Toast.makeText(this, "All " + codes.length + " links are available", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        boolean[] marked = new boolean[dead.size()];
+        java.util.Arrays.fill(marked, true);
+        new AlertDialog.Builder(this)
+                .setTitle(dead.size() + " of " + codes.length + " articles unavailable")
+                .setMultiChoiceItems(labels.toArray(new CharSequence[0]), marked, (d, w, on) -> marked[w] = on)
+                .setPositiveButton("Mark as Read", (d, w) -> {
+                    List<Long> ids = new ArrayList<>();
+                    for (int i = 0; i < dead.size(); i++) {
+                        Db.Item it = dead.get(i);
+                        if (marked[i] && !it.read) {
+                            it.read = true;
+                            ids.add(it.id);
+                        }
+                    }
+                    if (ids.isEmpty()) return;
+                    App.sync.setFlag(ids, Db.READ, true);
+                    App.db.refreshFlags(items); // a sync may have reloaded the list while checking
                     adapter.notifyDataSetChanged();
                     updateStatus();
                 })

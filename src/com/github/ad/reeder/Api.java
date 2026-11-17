@@ -98,6 +98,34 @@ final class Api {
         }
     }
 
+    private static final String BROWSER_UA = "Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Mobile Safari/537.36";
+
+    /** Final HTTP status of a page after redirects. HEAD first; GET when HEAD fails, since some servers refuse HEAD. */
+    static int status(String url) throws IOException {
+        int code = status("HEAD", url);
+        return code >= 400 ? status("GET", url) : code;
+    }
+
+    private static int status(String method, String url) throws IOException {
+        for (int hop = 0; hop < 8; hop++) {
+            HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+            c.setInstanceFollowRedirects(false);
+            c.setConnectTimeout(10000);
+            c.setReadTimeout(10000);
+            c.setRequestMethod(method);
+            c.setRequestProperty("User-Agent", BROWSER_UA);
+            try {
+                int code = c.getResponseCode();
+                String loc = c.getHeaderField("Location");
+                if (code / 100 != 3 || loc == null) return code;
+                url = new URL(new URL(url), loc).toString();
+            } finally {
+                c.disconnect();
+            }
+        }
+        throw new IOException("Too many redirects");
+    }
+
     static String yandex300(String token, String articleUrl) throws IOException, JSONException {
         HttpURLConnection c = (HttpURLConnection) new URL("https://300.ya.ru/api/sharing-url").openConnection();
         c.setConnectTimeout(15000);

@@ -15,6 +15,7 @@ final class FilterBar extends LinearLayout {
     private static final int[] ICONS = {R.drawable.ic_star, R.drawable.ic_dot, R.drawable.ic_lines};
     private static final String[] LABELS = {"STARRED", "UNREAD", "ALL"};
     private final LinearLayout[] tabs = new LinearLayout[3];
+    private final boolean compact;
 
     FilterBar(Context c, View left, View right, Listener l) {
         super(c);
@@ -48,6 +49,8 @@ final class FilterBar extends LinearLayout {
         }
         addView(Ui.space(c, 1));
         addView(right != null ? right : Ui.spacer(c, 48));
+        measure(MeasureSpec.UNSPECIFIED, MeasureSpec.UNSPECIFIED); // all labels visible: the widest the bar gets
+        compact = getMeasuredWidth() > c.getResources().getDisplayMetrics().widthPixels;
         select(App.filter());
     }
 
@@ -56,7 +59,7 @@ final class FilterBar extends LinearLayout {
             boolean on = i == f;
             tabs[i].setBackground(on ? Ui.rounded(getContext(), R.color.highlight, 16) : null);
             tabs[i].setPadding(Ui.dp(getContext(), on ? 14 : 8), 0, Ui.dp(getContext(), on ? 14 : 8), 0);
-            tabs[i].getChildAt(1).setVisibility(on ? VISIBLE : GONE);
+            tabs[i].getChildAt(1).setVisibility(on && !compact ? VISIBLE : GONE);
         }
     }
 }
