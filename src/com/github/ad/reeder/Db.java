@@ -111,10 +111,10 @@ final class Db extends SQLiteOpenHelper {
         }
     }
 
-    Map<String, Integer> counts(boolean starred) {
+    Map<String, Integer> counts(int filter) {
         Map<String, Integer> out = new HashMap<>();
         try (Cursor c = getReadableDatabase().rawQuery("SELECT feed_id, COUNT(*) FROM items WHERE "
-                + (starred ? "starred=1" : "read=0") + " GROUP BY feed_id", null)) {
+                + (filter == App.STARRED ? "starred=1" : filter == App.UNREAD ? "read=0" : "1=1") + " GROUP BY feed_id", null)) {
             while (c.moveToNext()) out.put(c.getString(0), c.getInt(1));
         }
         return out;

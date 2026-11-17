@@ -155,8 +155,7 @@ public class MainActivity extends Activity implements Sync.Listener {
         int filter = App.filter();
         if (reset || filter != shownFilter) shown.clear();
         shownFilter = filter;
-        Map<String, Integer> unread = App.db.counts(false);
-        Map<String, Integer> counts = filter == App.STARRED ? App.db.counts(true) : unread;
+        Map<String, Integer> counts = App.db.counts(filter);
         entries.clear();
         Entry agg = new Entry();
         agg.type = AGGREGATE;
