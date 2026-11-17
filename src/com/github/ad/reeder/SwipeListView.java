@@ -2,7 +2,6 @@ package com.github.ad.reeder;
 
 import android.content.Context;
 import android.graphics.Rect;
-import android.os.Build;
 import android.view.Gravity;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
@@ -115,20 +114,23 @@ final class SwipeListView extends ListView {
                         }
                     } else if (dy > slop && dy > Math.abs(dx) && atTop() && callback != null) {
                         mode = 2;
+                        armed = false;
                         cancelSuper(e);
                     }
                 }
                 if (mode == 1) {
                     swipeRow.setOffset(dx - Math.signum(dx) * slop);
                     boolean over = Math.abs(dx) > getWidth() * 0.25f;
-                    if (over && !armed) performHapticFeedback(Build.VERSION.SDK_INT >= 34 ? HapticFeedbackConstants.GESTURE_THRESHOLD_ACTIVATE
-                            : Build.VERSION.SDK_INT >= 30 ? HapticFeedbackConstants.CONFIRM : HapticFeedbackConstants.KEYBOARD_TAP);
+                    if (over && !armed) tick();
                     armed = over;
                     return true;
                 }
                 if (mode == 2) {
                     setTranslationY(Math.max(0, dy) * 0.45f);
                     callback.onPull(getTranslationY() / (64 * density));
+                    boolean over = getTranslationY() > 64 * density;
+                    if (over && !armed) tick();
+                    armed = over;
                     return true;
                 }
                 break;
@@ -155,5 +157,16 @@ final class SwipeListView extends ListView {
                 break;
         }
         return super.onTouchEvent(e);
+    }
+
+    private void tick() {
+        performHapticFeedback(HapticFeedbackConstants.CLOCK_TICK);
+    }
+
+    @Override
+    public boolean performHapticFeedback(int feedbackConstant) {
+        // AbsListView fires the heavy LONG_PRESS itself after onItemLongClick
+        return super.performHapticFeedback(feedbackConstant == HapticFeedbackConstants.LONG_PRESS
+                ? HapticFeedbackConstants.KEYBOARD_TAP : feedbackConstant);
     }
 }
