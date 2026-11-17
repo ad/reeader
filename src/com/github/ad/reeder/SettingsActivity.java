@@ -16,6 +16,8 @@ import android.widget.ScrollView;
 import android.widget.Switch;
 import android.widget.TextView;
 
+import java.util.List;
+
 public class SettingsActivity extends Activity {
     private LinearLayout body;
 
@@ -90,6 +92,18 @@ public class SettingsActivity extends Activity {
             App.prefs.edit().putBoolean("mark_open", i == 0).apply();
             build();
         }));
+
+        List<String[]> browsers = Browser.installed(this);
+        String[] bValues = new String[browsers.size() + 2], bLabels = new String[bValues.length];
+        bValues[0] = Browser.IN_APP;
+        bLabels[0] = "Reeader";
+        bValues[1] = Browser.SYSTEM;
+        bLabels[1] = "Default browser";
+        for (int i = 0; i < browsers.size(); i++) {
+            bValues[i + 2] = browsers.get(i)[0];
+            bLabels[i + 2] = browsers.get(i)[1];
+        }
+        choice(r, "Open links in", "browser", bValues, bLabels, Browser.SYSTEM);
 
         LinearLayout m = card(this, body);
         switchRow(this, m, "Mark as read on scroll", App.prefs.getBoolean("mark_scroll", false),

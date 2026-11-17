@@ -72,11 +72,7 @@ public class ArticleActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) {
-                try {
-                    startActivity(new Intent(Intent.ACTION_VIEW, r.getUrl()));
-                } catch (android.content.ActivityNotFoundException e) {
-                    Toast.makeText(ArticleActivity.this, "No app to open " + r.getUrl(), Toast.LENGTH_SHORT).show();
-                }
+                Browser.open(ArticleActivity.this, r.getUrl());
                 return true;
             }
 
