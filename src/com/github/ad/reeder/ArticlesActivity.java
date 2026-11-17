@@ -4,12 +4,10 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Intent;
 import android.graphics.Typeface;
-import android.os.Build;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
-import android.view.Menu;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
@@ -18,7 +16,6 @@ import android.widget.BaseAdapter;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import java.text.SimpleDateFormat;
@@ -132,7 +129,7 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         list.setOnItemLongClickListener((a, v, pos, id) -> {
             Object o = a.getItemAtPosition(pos);
             if (!(o instanceof Db.Item)) return false;
-            showMenu((Db.Item) o, v);
+            showMenu((Db.Item) o);
             return true;
         });
         list.setOnScrollListener(new AbsListView.OnScrollListener() {
@@ -242,27 +239,71 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         updateStatus();
     }
 
-    private void showMenu(Db.Item it, View anchor) {
-        PopupMenu p = new PopupMenu(this, anchor);
-        Menu m = p.getMenu();
-        m.add(0, 1, 0, it.read ? "Unread" : "Read");
-        m.add(0, 2, 0, it.starred ? "Unstar" : "Star");
-        m.add(1, 3, 0, "Mark above as read");
-        m.add(1, 4, 0, "Mark below as read");
-        m.add(2, 5, 0, "Share");
-        if (Build.VERSION.SDK_INT >= 28) m.setGroupDividerEnabled(true);
-        p.setOnMenuItemClickListener(mi -> {
-            int idx = rows.indexOf(it), pos = idx + list.getHeaderViewsCount();
-            switch (mi.getItemId()) {
-                case 1: toggle(it, true); break;
-                case 2: toggle(it, false); break;
-                case 3: if (idx >= 0) markPassed(0, pos); break;
-                case 4: if (idx >= 0) markPassed(pos + 1, list.getCount()); break;
-                default: ArticleActivity.share(this, it);
-            }
-            return true;
+    private void showMenu(Db.Item it) {
+        android.app.Dialog d = new android.app.Dialog(this);
+        LinearLayout card = Ui.column(this);
+        card.setBackground(Ui.rounded(this, R.color.card, 20));
+        card.setPadding(0, Ui.dp(this, 16), 0, Ui.dp(this, 8));
+        TextView title = Ui.text(this, 15, R.color.text, true);
+        title.setText(it.title);
+        title.setMaxLines(2);
+        title.setEllipsize(TextUtils.TruncateAt.END);
+        TextView feed = Ui.text(this, 13, R.color.text2, false);
+        feed.setText(it.feedTitle);
+        feed.setSingleLine();
+        feed.setEllipsize(TextUtils.TruncateAt.END);
+        for (TextView t : new TextView[]{title, feed}) {
+            t.setPadding(Ui.dp(this, 20), 0, Ui.dp(this, 20), Ui.dp(this, 2));
+            card.addView(t);
+        }
+        int idx = rows.indexOf(it), pos = idx + list.getHeaderViewsCount();
+        menuDivider(card);
+        menuItem(d, card, it.read ? R.drawable.ic_dot : R.drawable.ic_circle, it.read ? "Mark as Unread" : "Mark as Read", 0, () -> toggle(it, true));
+        menuItem(d, card, it.starred ? R.drawable.ic_star_border : R.drawable.ic_star, it.starred ? "Unstar" : "Star", 0, () -> toggle(it, false));
+        menuDivider(card);
+        menuItem(d, card, R.drawable.ic_down, "Mark Above as Read", 180, () -> {
+            if (idx >= 0) markPassed(0, pos);
         });
-        p.show();
+        menuItem(d, card, R.drawable.ic_down, "Mark Below as Read", 0, () -> {
+            if (idx >= 0) markPassed(pos + 1, list.getCount());
+        });
+        menuDivider(card);
+        menuItem(d, card, R.drawable.ic_share, "Share", 0, () -> ArticleActivity.share(this, it));
+        d.setContentView(card);
+        android.view.Window w = d.getWindow();
+        w.setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+        w.setLayout(Math.min(getResources().getDisplayMetrics().widthPixels - Ui.dp(this, 48), Ui.dp(this, 320)), -2);
+        w.setDimAmount(0.4f);
+        d.show();
+    }
+
+    private void menuDivider(LinearLayout card) {
+        View v = new View(this);
+        v.setBackgroundColor(Ui.color(this, R.color.divider));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, 1);
+        lp.setMargins(Ui.dp(this, 20), Ui.dp(this, 8), Ui.dp(this, 20), Ui.dp(this, 8));
+        card.addView(v, lp);
+    }
+
+    private void menuItem(android.app.Dialog d, LinearLayout card, int icon, String label, float rotation, Runnable action) {
+        LinearLayout row = Ui.row(this);
+        row.setBackground(getDrawable(R.drawable.row_bg));
+        row.setPadding(Ui.dp(this, 12), 0, Ui.dp(this, 12), 0);
+        ImageView i = new ImageView(this);
+        i.setImageResource(icon);
+        i.setRotation(rotation);
+        row.addView(i, new LinearLayout.LayoutParams(Ui.dp(this, 24), Ui.dp(this, 24)));
+        TextView t = Ui.text(this, 16, R.color.text, false);
+        t.setText(label);
+        t.setPadding(Ui.dp(this, 16), 0, 0, 0);
+        row.addView(t);
+        row.setOnClickListener(v -> {
+            d.dismiss();
+            action.run();
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, Ui.dp(this, 48));
+        lp.setMargins(Ui.dp(this, 8), 0, Ui.dp(this, 8), 0);
+        card.addView(row, lp);
     }
 
     private void markPassed(int from, int to) {
