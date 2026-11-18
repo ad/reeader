@@ -343,10 +343,8 @@ public class ArticlesActivity extends Activity implements Sync.Listener {
         new AlertDialog.Builder(this)
                 .setMessage("Mark " + ids.size() + " items as read?")
                 .setPositiveButton("Mark as Read", (d, w) -> {
-                    for (Db.Item it : items) it.read = true;
                     App.sync.setFlag(ids, Db.READ, true);
-                    adapter.notifyDataSetChanged();
-                    updateStatus();
+                    finish();
                 })
                 .setNegativeButton("Cancel", null)
                 .show();

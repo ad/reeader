@@ -32,6 +32,7 @@ final class Browser {
         if (web && !SYSTEM.equals(b)) {
             try {
                 a.startActivity(new Intent(Intent.ACTION_VIEW, uri).setPackage(b));
+                App.inBrowser = true;
                 return;
             } catch (ActivityNotFoundException ignored) {
                 // chosen browser was uninstalled: fall back to the default
@@ -43,6 +44,7 @@ final class Browser {
     static void external(Activity a, Uri uri) {
         try {
             a.startActivity(new Intent(Intent.ACTION_VIEW, uri));
+            App.inBrowser = true;
         } catch (ActivityNotFoundException e) {
             Toast.makeText(a, "No app to open " + uri, Toast.LENGTH_SHORT).show();
         }
